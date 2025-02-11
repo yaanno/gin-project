@@ -1,11 +1,11 @@
 package main
 
 import (
-	"log"
 	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog"
 
 	"github.com/yourusername/user-management-api/internal/config"
 	"github.com/yourusername/user-management-api/internal/database/sqlite"
@@ -19,36 +19,50 @@ func main() {
 	// Set Gin to production mode
 	gin.SetMode(gin.ReleaseMode)
 
+	// Create logger
+	log := logger.New(logger.Config{
+		Level:       "info",
+		FilePath:    "logs/app.log",
+		MaxSize:     50,
+		MaxBackups:  5,
+		EnableFile:  true,
+		Development: true,
+	})
+
+	// Set global logger
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatal().Err(err).Msg("Error loading .env file")
 	}
+
 	sqliteConfig := sqlite.SQLiteConfig{
-		Path:     "./users.db",
-		InMemory: true,
+		Path: "./data/users.db",
 	}
+
 	// Initialize configuration
 	_, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		log.Fatal().Err(err).Msg("Failed to load configuration")
 	}
 
 	// Initialize database connection
 	db, err := sqlite.InitSQLite(sqliteConfig)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatal().Err(err).Msg("Failed to connect to database")
 	}
 	defer db.Close()
 
 	// Run migrations
 	if err := sqlite.RunSQLiteMigrations(); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		log.Fatal().Err(err).Msg("Failed to run migrations")
 	}
 
 	// inject to handler
-	userRepository := repository.NewUserRepository(db)
-	userHandler := handlers.NewUserHandler(userRepository)
-	authHandler := handlers.NewAuthHandler(userRepository)
+	userRepository := repository.NewUserRepository(db, log)
+	userHandler := handlers.NewUserHandler(userRepository, log)
+	authHandler := handlers.NewAuthHandler(userRepository, log)
 
 	// Setup Gin router
 	router := gin.New()
@@ -70,7 +84,7 @@ func main() {
 
 	// User routes (protected)
 	userGroup := router.Group("/users")
-	userGroup.Use(middleware.JWTAuthMiddleware())
+	userGroup.Use(middleware.JWTAuthMiddleware(log))
 	{
 		userGroup.GET("/", userHandler.GetAllUsers)
 		userGroup.GET("/:id", userHandler.GetUserByID)
@@ -78,17 +92,15 @@ func main() {
 		userGroup.DELETE("/:id", userHandler.DeleteUser)
 	}
 
-	// Start server
+	// Get port from environment or use default
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	logger.Info("Starting server on port", port)
-	log.Printf("Starting server on port %s", port)
+	log.Info().Str("port", port).Msg("Starting server")
 
 	if err := router.Run(":" + port); err != nil {
-		logger.Error("Server failed to start:", err)
-		log.Fatalf("Server failed to start: %v", err)
+		log.Fatal().Err(err).Msg("Server failed to start")
 	}
 }

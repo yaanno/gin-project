@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -21,8 +22,8 @@ func setupTestRouter() (*gin.Engine, *repository.UserRepositoryImpl) {
 	if err != nil {
 		fmt.Printf("%s", err)
 	}
-	repo := repository.NewUserRepository(db)
-	authHandler := NewAuthHandler(repo)
+	repo := repository.NewUserRepository(db, zerolog.Logger{})
+	authHandler := NewAuthHandler(repo, zerolog.Logger{})
 	router := gin.Default()
 	router.POST("/auth/register", authHandler.RegisterUser)
 	router.POST("/auth/login", authHandler.LoginUser)

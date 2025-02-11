@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
+	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
 	"github.com/yourusername/user-management-api/internal/repository"
 	"github.com/yourusername/user-management-api/pkg/utils"
@@ -25,12 +25,14 @@ type AuthHandler interface {
 }
 
 type AuthHandlerImpl struct {
-	repo repository.UserRepository
+	repo   repository.UserRepository
+	logger zerolog.Logger
 }
 
-func NewAuthHandler(repo repository.UserRepository) *AuthHandlerImpl {
+func NewAuthHandler(repo repository.UserRepository, logger zerolog.Logger) *AuthHandlerImpl {
 	return &AuthHandlerImpl{
-		repo: repo,
+		repo:   repo,
+		logger: logger,
 	}
 }
 
@@ -82,12 +84,14 @@ func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
 	// Find user by username
 	user, err := a.repo.FindUserByUsername(req.Username)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		a.logger.Err(err).Msg("User not found")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
 		return
 	}
 
 	// Check password
 	if !user.CheckPasswordHash(req.Password) {
+		a.logger.Err(err).Msg("Invalid credentials")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -95,12 +99,14 @@ func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
 	// Generate token pair
 	accessToken, err := utils.GenerateAccessToken(user.ID, user.Username)
 	if err != nil {
+		a.logger.Err(err).Msg("Failed to generate access token")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate access token"})
 		return
 	}
 
 	refreshToken, err := utils.GenerateRefreshToken(user.ID, user.Username)
 	if err != nil {
+		a.logger.Err(err).Msg("Failed to generate refresh token")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate refresh token"})
 		return
 	}
@@ -124,6 +130,7 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 	// Validate refresh token
 	claims, err := utils.ValidateToken(refreshRequest.RefreshToken, "refresh")
 	if err != nil {
+		a.logger.Err(err).Msg("Invalid refresh token")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
 		return
 	}
@@ -131,12 +138,14 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 	// Generate new token pair
 	accessToken, err := utils.GenerateAccessToken(claims.UserID, claims.Username)
 	if err != nil {
+		a.logger.Err(err).Msg("Failed to generate access token")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate access token"})
 		return
 	}
 
 	refreshToken, err := utils.GenerateRefreshToken(claims.UserID, claims.Username)
 	if err != nil {
+		a.logger.Err(err).Msg("Failed to generate refresh token")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate refresh token"})
 		return
 	}

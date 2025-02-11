@@ -1,36 +1,86 @@
 package logger
 
 import (
-	"log"
+	"io"
 	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/rs/zerolog"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var (
-	InfoLogger  *log.Logger
-	ErrorLogger *log.Logger
-)
-
-func init() {
-	// Create log files
-	infoFile, err := os.OpenFile("logs/info.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		log.Fatal("Failed to open info log file:", err)
-	}
-
-	errorFile, err := os.OpenFile("logs/error.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		log.Fatal("Failed to open error log file:", err)
-	}
-
-	// Setup loggers
-	InfoLogger = log.New(infoFile, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
-	ErrorLogger = log.New(errorFile, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+// Config represents the logger configuration
+type Config struct {
+	Level       string
+	FilePath    string
+	MaxSize     int
+	MaxBackups  int
+	MaxAge      int
+	EnableFile  bool
+	Development bool
 }
 
-func Info(v ...interface{}) {
-	InfoLogger.Println(v...)
+// New creates a new logger with the specified configuration
+func New(cfg Config) zerolog.Logger {
+	// Multiple writers
+	var writers []io.Writer
+
+	// Always add console writer
+	consoleWriter := zerolog.ConsoleWriter{
+		Out:        os.Stdout,
+		TimeFormat: time.RFC3339,
+	}
+	writers = append(writers, consoleWriter)
+
+	// Optional file logging
+	if cfg.EnableFile {
+		// Ensure logs directory exists
+		logDir := filepath.Dir(cfg.FilePath)
+		if err := os.MkdirAll(logDir, os.ModePerm); err != nil {
+			panic(err)
+		}
+
+		// Configure log rotation
+		rotatingWriter := &lumberjack.Logger{
+			Filename:   cfg.FilePath,
+			MaxSize:    cfg.MaxSize, // megabytes
+			MaxBackups: cfg.MaxBackups,
+			MaxAge:     cfg.MaxAge, // days
+		}
+		writers = append(writers, rotatingWriter)
+	}
+
+	// Create multi-writer
+	multiWriter := io.MultiWriter(writers...)
+
+	// Parse log level
+	level, err := zerolog.ParseLevel(cfg.Level)
+	if err != nil {
+		level = zerolog.InfoLevel
+	}
+
+	// Configure logger
+	logger := zerolog.New(multiWriter).
+		Level(level).
+		With().
+		Timestamp().
+		Caller().
+		Logger()
+
+	return logger
 }
 
-func Error(v ...interface{}) {
-	ErrorLogger.Println(v...)
+// Default returns a default configured logger
+func Default() zerolog.Logger {
+	defaultConfig := Config{
+		Level:       "debug",
+		FilePath:    "logs/app.log",
+		MaxSize:     100,
+		MaxBackups:  3,
+		MaxAge:      28,
+		EnableFile:  true,
+		Development: false,
+	}
+	return New(defaultConfig)
 }

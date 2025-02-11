@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
 )
 
@@ -21,12 +22,14 @@ type UserRepository interface {
 }
 
 type UserRepositoryImpl struct {
-	db *sql.DB
+	db  *sql.DB
+	log zerolog.Logger
 }
 
-func NewUserRepository(db *sql.DB) *UserRepositoryImpl {
+func NewUserRepository(db *sql.DB, log zerolog.Logger) *UserRepositoryImpl {
 	return &UserRepositoryImpl{
-		db: db,
+		db:  db,
+		log: log,
 	}
 }
 
