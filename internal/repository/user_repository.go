@@ -141,3 +141,5 @@ func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {
 
 	return users, nil
 }
+
+var _ UserRepository = (*UserRepositoryImpl)(nil)

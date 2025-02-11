@@ -12,6 +12,9 @@ import (
 
 type UserHandler interface {
 	GetAllUsers(c *gin.Context)
+	GetUserByID(c *gin.Context)
+	UpdateUser(c *gin.Context)
+	DeleteUser(c *gin.Context)
 }
 
 type UserHandlerImpl struct {
@@ -161,3 +164,5 @@ func (h *UserHandlerImpl) DeleteUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
+
+var _ UserHandler = (*UserHandlerImpl)(nil)
