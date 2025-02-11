@@ -8,9 +8,10 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/yourusername/user-management-api/internal/config"
-	"github.com/yourusername/user-management-api/internal/database"
+	"github.com/yourusername/user-management-api/internal/database/sqlite"
 	"github.com/yourusername/user-management-api/internal/handlers"
 	"github.com/yourusername/user-management-api/internal/middleware"
+	"github.com/yourusername/user-management-api/internal/repository"
 	"github.com/yourusername/user-management-api/pkg/logger"
 )
 
@@ -22,7 +23,10 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
-
+	sqliteConfig := sqlite.SQLiteConfig{
+		Path:     "./users.db",
+		InMemory: true,
+	}
 	// Initialize configuration
 	_, err := config.LoadConfig()
 	if err != nil {
@@ -30,15 +34,21 @@ func main() {
 	}
 
 	// Initialize database connection
-	if err := database.InitPostgres(); err != nil {
+	db, err := sqlite.InitSQLite(sqliteConfig)
+	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer database.CloseDB()
+	defer db.Close()
 
 	// Run migrations
-	if err := database.RunMigrations(); err != nil {
+	if err := sqlite.RunSQLiteMigrations(); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
+
+	// inject to handler
+	userRepository := repository.NewUserRepository(db)
+	userHandler := handlers.NewUserHandler(userRepository)
+	authHandler := handlers.NewAuthHandler(userRepository)
 
 	// Setup Gin router
 	router := gin.New()
@@ -53,19 +63,19 @@ func main() {
 	// Authentication routes
 	authGroup := router.Group("/auth")
 	{
-		authGroup.POST("/register", handlers.RegisterUser)
-		authGroup.POST("/login", handlers.LoginUser)
-		authGroup.POST("/refresh", handlers.RefreshTokens)
+		authGroup.POST("/register", authHandler.RegisterUser)
+		authGroup.POST("/login", authHandler.LoginUser)
+		authGroup.POST("/refresh", authHandler.RefreshTokens)
 	}
 
 	// User routes (protected)
 	userGroup := router.Group("/users")
 	userGroup.Use(middleware.JWTAuthMiddleware())
 	{
-		userGroup.GET("/", handlers.GetAllUsers)
-		userGroup.GET("/:id", handlers.GetUserByID)
-		userGroup.PUT("/:id", handlers.UpdateUser)
-		userGroup.DELETE("/:id", handlers.DeleteUser)
+		userGroup.GET("/", userHandler.GetAllUsers)
+		userGroup.GET("/:id", userHandler.GetUserByID)
+		userGroup.PUT("/:id", userHandler.UpdateUser)
+		userGroup.DELETE("/:id", userHandler.DeleteUser)
 	}
 
 	// Start server

@@ -9,8 +9,22 @@ import (
 	"github.com/yourusername/user-management-api/pkg/utils"
 )
 
-func GetAllUsers(c *gin.Context) {
-	users, err := repository.GetAllUsers()
+type UserHandler interface {
+	GetAllUsers(c *gin.Context)
+}
+
+type UserHandlerImpl struct {
+	repo repository.UserRepository
+}
+
+func NewUserHandler(repo repository.UserRepository) *UserHandlerImpl {
+	return &UserHandlerImpl{
+		repo: repo,
+	}
+}
+
+func (h *UserHandlerImpl) GetAllUsers(c *gin.Context) {
+	users, err := h.repo.GetAllUsers()
 	if err != nil {
 		c.Error(err)
 		return
@@ -31,7 +45,7 @@ func GetAllUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, safeUsers)
 }
 
-func GetUserByID(c *gin.Context) {
+func (h *UserHandlerImpl) GetUserByID(c *gin.Context) {
 	// Get user ID from path parameter
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -40,7 +54,7 @@ func GetUserByID(c *gin.Context) {
 	}
 
 	// Retrieve user from database
-	user, err := repository.FindUserByID(uint(userID))
+	user, err := h.repo.FindUserByID(uint(userID))
 	if err != nil {
 		if err == repository.ErrUserNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -59,7 +73,7 @@ func GetUserByID(c *gin.Context) {
 	})
 }
 
-func UpdateUser(c *gin.Context) {
+func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 	// Get user ID from path parameter
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -78,7 +92,7 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	// Find existing user
-	user, err := repository.FindUserByID(uint(userID))
+	user, err := h.repo.FindUserByID(uint(userID))
 	if err != nil {
 		if err == repository.ErrUserNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -111,7 +125,7 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	// Save updated user
-	if err := repository.UpdateUser(user); err != nil {
+	if err := h.repo.UpdateUser(user); err != nil {
 		c.Error(err)
 		return
 	}
@@ -119,7 +133,7 @@ func UpdateUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
 }
 
-func DeleteUser(c *gin.Context) {
+func (h *UserHandlerImpl) DeleteUser(c *gin.Context) {
 	// Get user ID from path parameter
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -128,7 +142,7 @@ func DeleteUser(c *gin.Context) {
 	}
 
 	// Delete user
-	if err := repository.DeleteUser(uint(userID)); err != nil {
+	if err := h.repo.DeleteUser(uint(userID)); err != nil {
 		c.Error(err)
 		return
 	}

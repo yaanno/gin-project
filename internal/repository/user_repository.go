@@ -11,24 +11,43 @@ var (
 	ErrUserNotFound = errors.New("user not found")
 )
 
-func CreateUser(user *database.User) error {
+type UserRepository interface {
+	CreateUser(user *database.User) error
+	FindUserByUsername(username string) (*database.User, error)
+	FindUserByID(userID uint) (*database.User, error)
+	UpdateUser(user *database.User) error
+	DeleteUser(userID uint) error
+	GetAllUsers() ([]database.User, error)
+}
+
+type UserRepositoryImpl struct {
+	db *sql.DB
+}
+
+func NewUserRepository(db *sql.DB) *UserRepositoryImpl {
+	return &UserRepositoryImpl{
+		db: db,
+	}
+}
+
+func (r *UserRepositoryImpl) CreateUser(user *database.User) error {
 	query := `
 		INSERT INTO users (username, email, password, created_at, updated_at)
 		VALUES ($1, $2, $3, NOW(), NOW())
 		RETURNING id
 	`
-	err := database.DB.QueryRow(query, user.Username, user.Email, user.Password).Scan(&user.ID)
+	err := r.db.QueryRow(query, user.Username, user.Email, user.Password).Scan(&user.ID)
 	return err
 }
 
-func FindUserByUsername(username string) (*database.User, error) {
+func (r *UserRepositoryImpl) FindUserByUsername(username string) (*database.User, error) {
 	user := &database.User{}
 	query := `
 		SELECT id, username, email, password 
 		FROM users 
 		WHERE username = $1
 	`
-	err := database.DB.QueryRow(query, username).Scan(
+	err := r.db.QueryRow(query, username).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
@@ -46,14 +65,14 @@ func FindUserByUsername(username string) (*database.User, error) {
 	return user, nil
 }
 
-func FindUserByID(userID uint) (*database.User, error) {
+func (r *UserRepositoryImpl) FindUserByID(userID uint) (*database.User, error) {
 	user := &database.User{}
 	query := `
 		SELECT id, username, email, password, created_at, updated_at
 		FROM users 
 		WHERE id = $1
 	`
-	err := database.DB.QueryRow(query, userID).Scan(
+	err := r.db.QueryRow(query, userID).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
@@ -73,29 +92,29 @@ func FindUserByID(userID uint) (*database.User, error) {
 	return user, nil
 }
 
-func UpdateUser(user *database.User) error {
+func (r *UserRepositoryImpl) UpdateUser(user *database.User) error {
 	query := `
 		UPDATE users 
 		SET email = $1, password = $2, updated_at = NOW()
 		WHERE id = $3
 	`
-	_, err := database.DB.Exec(query, user.Email, user.Password, user.ID)
+	_, err := r.db.Exec(query, user.Email, user.Password, user.ID)
 	return err
 }
 
-func DeleteUser(userID uint) error {
+func (r *UserRepositoryImpl) DeleteUser(userID uint) error {
 	query := `DELETE FROM users WHERE id = $1`
-	_, err := database.DB.Exec(query, userID)
+	_, err := r.db.Exec(query, userID)
 	return err
 }
 
-func GetAllUsers() ([]database.User, error) {
+func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {
 	query := `
 		SELECT id, username, email, created_at, updated_at 
 		FROM users 
 		ORDER BY created_at DESC
 	`
-	rows, err := database.DB.Query(query)
+	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, err
 	}

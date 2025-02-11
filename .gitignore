@@ -46,6 +46,9 @@ docs/
 secrets.yaml
 config.yaml
 
+# SQLite data
+data/
+
 # Go module related files (generally you want to keep go.mod and go.sum)
 # However, if you have generated module related data that should be ignored, add here
 # For most cases, these are not needed in .gitignore

@@ -21,7 +21,20 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-func RegisterUser(c *gin.Context) {
+type AuthHandler interface {
+}
+
+type AuthHandlerImpl struct {
+	repo repository.UserRepository
+}
+
+func NewAuthHandler(repo repository.UserRepository) *AuthHandlerImpl {
+	return &AuthHandlerImpl{
+		repo: repo,
+	}
+}
+
+func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -51,7 +64,7 @@ func RegisterUser(c *gin.Context) {
 	}
 
 	// Save user to database
-	if err := repository.CreateUser(user); err != nil {
+	if err := a.repo.CreateUser(user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return
 	}
@@ -59,7 +72,7 @@ func RegisterUser(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
 }
 
-func LoginUser(c *gin.Context) {
+func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -67,7 +80,7 @@ func LoginUser(c *gin.Context) {
 	}
 
 	// Find user by username
-	user, err := repository.FindUserByUsername(req.Username)
+	user, err := a.repo.FindUserByUsername(req.Username)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
@@ -98,7 +111,7 @@ func LoginUser(c *gin.Context) {
 	})
 }
 
-func RefreshTokens(c *gin.Context) {
+func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 	var refreshRequest struct {
 		RefreshToken string `json:"refresh_token" binding:"required"`
 	}
