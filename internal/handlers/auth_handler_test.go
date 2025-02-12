@@ -25,6 +25,10 @@ func setupTestRouter() (*gin.Engine, *repository.UserRepositoryImpl) {
 	if err != nil {
 		fmt.Printf("%s", err)
 	}
+	err = db.RunSQLiteMigrations()
+	if err != nil {
+		fmt.Printf("%s", err)
+	}
 	repo := repository.NewUserRepository(db, zerolog.Logger{})
 	authService := services.NewAuthService(repo, zerolog.Logger{})
 	authHandler := NewAuthHandler(authService, zerolog.Logger{})

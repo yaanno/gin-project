@@ -45,23 +45,21 @@ func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 	defer cancel()
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body", Details: err.Error()})
 		return
 	}
 
 	// Validate password complexity
 	sanitizedPassword := utils.SanitizePassword(req.Password)
 	if !utils.IsPasswordComplex(sanitizedPassword) {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Password does not meet complexity requirements. " +
-				"Minimum 12 characters with uppercase, lowercase, number, and special character.",
-		})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Password does not meet complexity requirements. " +
+			"Minimum 12 characters with uppercase, lowercase, number, and special character."})
 		return
 	}
 
 	user, err := a.service.RegisterUser(ctx, req.Username, sanitizedPassword)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -73,14 +71,14 @@ func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
 	defer cancel()
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body", Details: err.Error()})
 		return
 	}
 
 	tokenPair, err := a.service.LoginUser(ctx, req.Username, req.Password)
 	if err != nil {
 		a.logger.Err(err).Msg("Failed to login user")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: err.Error()})
 		return
 	}
 
@@ -95,7 +93,7 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&refreshRequest); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body", Details: err.Error()})
 		return
 	}
 
@@ -103,14 +101,14 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 	accessToken, err := a.service.ValidateRefreshToken(ctx, refreshRequest.RefreshToken)
 	if err != nil {
 		a.logger.Err(err).Msg("Invalid refresh token")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Invalid refresh token"})
 		return
 	}
 
 	tokenPair, err := a.service.RefreshTokens(ctx, accessToken.ID, accessToken.Username)
 	if err != nil {
 		a.logger.Err(err).Msg("Failed to refresh tokens")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to refresh tokens"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Failed to refresh tokens", Details: err.Error()})
 		return
 	}
 
@@ -124,7 +122,7 @@ func (a *AuthHandlerImpl) LogoutUser(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
 		a.logger.Info().Msg("No authorization header")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization header missing"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Authorization header missing"})
 		return
 	}
 
@@ -132,14 +130,14 @@ func (a *AuthHandlerImpl) LogoutUser(c *gin.Context) {
 	parts := strings.Split(authHeader, " ")
 	if len(parts) != 2 || parts[0] != "Bearer" {
 		a.logger.Info().Msg("Invalid authorization format")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid authorization format"})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid authorization format"})
 		return
 	}
 	token := parts[1]
 
 	if err := a.service.LogoutUser(ctx, token); err != nil {
 		a.logger.Err(err).Msg("Failed to logout user")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to logout user"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Failed to logout user", Details: err.Error()})
 		return
 	}
 
