@@ -102,43 +102,20 @@ func (s *SQLiteDatabase) Conn(ctx context.Context) (*sql.Conn, error) {
 	return conn, nil
 }
 
-func (s *SQLiteDatabase) ExecuteQuery(query string, args ...interface{}) (sql.Result, error) {
-	conn, err := s.Conn(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("error connecting to SQLite database: %v", err)
-	}
-	defer conn.Close()
-
-	res, err := conn.ExecContext(context.Background(), query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("error executing query: %v", err)
-	}
-	return res, nil
+func (s *SQLiteDatabase) QueryRow(query string, args ...interface{}) *sql.Row {
+	return s.db.QueryRow(query, args...)
 }
 
 func (s *SQLiteDatabase) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	conn, err := s.Conn(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("error connecting to SQLite database: %v", err)
-	}
-	defer conn.Close()
-
-	rows, err := conn.QueryContext(context.Background(), query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("error executing query: %v", err)
-	}
-	return rows, nil
+	return s.db.Query(query, args...)
 }
 
-func (s *SQLiteDatabase) QueryRow(query string, args ...interface{}) *sql.Row {
-	conn, err := s.Conn(context.Background())
-	if err != nil {
-		return nil
-	}
-	defer conn.Close()
+func (s *SQLiteDatabase) ExecuteQuery(query string, args ...interface{}) (sql.Result, error) {
+	return s.db.Exec(query, args...)
+}
 
-	row := conn.QueryRowContext(context.Background(), query, args...)
-	return row
+func (s *SQLiteDatabase) BeginTx(ctx context.Context) (*sql.Tx, error) {
+	return s.db.BeginTx(ctx, nil)
 }
 
 // CreateInMemoryTestDB creates an in-memory test database
