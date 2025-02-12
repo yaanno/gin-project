@@ -12,6 +12,7 @@ import (
 	"github.com/yourusername/user-management-api/internal/handlers"
 	"github.com/yourusername/user-management-api/internal/middleware"
 	"github.com/yourusername/user-management-api/internal/repository"
+	"github.com/yourusername/user-management-api/internal/services"
 	"github.com/yourusername/user-management-api/pkg/logger"
 )
 
@@ -38,7 +39,8 @@ func main() {
 	}
 
 	sqliteConfig := sqlite.SQLiteConfig{
-		Path: "./data/users.db",
+		Path:     "./data/users.db",
+		InMemory: true,
 	}
 
 	// Initialize configuration
@@ -59,10 +61,14 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to run migrations")
 	}
 
-	// inject to handler
+	// inject to repository
 	userRepository := repository.NewUserRepository(db, log)
-	userHandler := handlers.NewUserHandler(userRepository, log)
-	authHandler := handlers.NewAuthHandler(userRepository, log)
+	// inject to service
+	userService := services.NewUserService(userRepository, log)
+	authService := services.NewAuthService(userRepository, log)
+	// inject to handler
+	userHandler := handlers.NewUserHandler(userService, log)
+	authHandler := handlers.NewAuthHandler(authService, log)
 
 	// Setup Gin router
 	router := gin.New()
