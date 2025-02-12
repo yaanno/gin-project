@@ -13,8 +13,12 @@ import (
 )
 
 type SQLiteConfig struct {
-	Path     string
-	InMemory bool
+	Path            string
+	InMemory        bool
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration
 }
 
 type SQLiteDatabase struct {
@@ -38,7 +42,7 @@ func NewSQLiteDatabase(config SQLiteConfig) (*SQLiteDatabase, error) {
 			// Default to a data directory if no path specified
 			dataDir := filepath.Join(".", "data")
 			if err := os.MkdirAll(dataDir, 0755); err != nil {
-				return nil, fmt.Errorf("failed to create data directory: %v", err)
+				return &SQLiteDatabase{}, fmt.Errorf("failed to create data directory: %v", err)
 			}
 			config.Path = filepath.Join(dataDir, "users.db")
 		}
@@ -49,18 +53,18 @@ func NewSQLiteDatabase(config SQLiteConfig) (*SQLiteDatabase, error) {
 	// Open database connection
 	db, err := sql.Open("sqlite3", connStr)
 	if err != nil {
-		return nil, fmt.Errorf("error opening SQLite database: %v", err)
+		return &SQLiteDatabase{}, fmt.Errorf("error opening SQLite database: %v", err)
 	}
 
 	// Configure connection pool
-	db.SetMaxOpenConns(25)                 // Maximum number of open connections
-	db.SetMaxIdleConns(25)                 // Maximum number of idle connections
-	db.SetConnMaxLifetime(5 * time.Minute) // Maximum lifetime of a connection
-	db.SetConnMaxIdleTime(3 * time.Minute) // Maximum idle time before closing
+	db.SetMaxOpenConns(config.MaxOpenConns)       // Maximum number of open connections
+	db.SetMaxIdleConns(config.MaxIdleConns)       // Maximum number of idle connections
+	db.SetConnMaxLifetime(config.ConnMaxLifetime) // Maximum lifetime of a connection
+	db.SetConnMaxIdleTime(config.ConnMaxIdleTime) // Maximum idle time before closing
 
 	// Test the connection
 	if err = db.Ping(); err != nil {
-		return nil, fmt.Errorf("error connecting to SQLite database: %v", err)
+		return &SQLiteDatabase{}, fmt.Errorf("error connecting to SQLite database: %v", err)
 	}
 
 	return &SQLiteDatabase{db: db}, nil
@@ -97,7 +101,7 @@ func (s *SQLiteDatabase) RunSQLiteMigrations() error {
 func (s *SQLiteDatabase) Conn(ctx context.Context) (*sql.Conn, error) {
 	conn, err := s.db.Conn(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("error connecting to SQLite database: %v", err)
+		return &sql.Conn{}, fmt.Errorf("error connecting to SQLite database: %v", err)
 	}
 	return conn, nil
 }
@@ -119,10 +123,10 @@ func (s *SQLiteDatabase) BeginTx(ctx context.Context) (*sql.Tx, error) {
 }
 
 // CreateInMemoryTestDB creates an in-memory test database
-func CreateInMemoryTestDB() (*sql.DB, error) {
+func CreateInMemoryTestDB() (*SQLiteDatabase, error) {
 	db, err := sql.Open("sqlite3", "file::memory:?cache=shared")
 	if err != nil {
-		return nil, fmt.Errorf("error creating in-memory test database: %v", err)
+		return &SQLiteDatabase{}, fmt.Errorf("error creating in-memory test database: %v", err)
 	}
 
 	// Run migrations
@@ -141,10 +145,10 @@ func CreateInMemoryTestDB() (*sql.DB, error) {
 	_, err = db.Exec(createUserTableQuery)
 	if err != nil {
 		db.Close()
-		return nil, fmt.Errorf("error creating users table in test database: %v", err)
+		return &SQLiteDatabase{}, fmt.Errorf("error creating users table in test database: %v", err)
 	}
 
-	return db, nil
+	return &SQLiteDatabase{db: db}, nil
 }
 
 // CloseSQLiteDB closes the database connection

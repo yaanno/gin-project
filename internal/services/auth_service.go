@@ -38,11 +38,11 @@ func (s *AuthServiceImpl) RefreshTokens(ctx context.Context, userID uint, userna
 
 	accessToken, err := s.GenerateAccessToken(ctx, userID, username)
 	if err != nil {
-		return nil, err
+		return &database.TokenPair{}, err
 	}
 	refreshToken, err := s.GenerateRefreshToken(ctx, userID, username)
 	if err != nil {
-		return nil, err
+		return &database.TokenPair{}, err
 	}
 
 	return &database.TokenPair{
@@ -54,16 +54,16 @@ func (s *AuthServiceImpl) RefreshTokens(ctx context.Context, userID uint, userna
 func (s *AuthServiceImpl) ValidateAccessToken(ctx context.Context, tokenString string) (*database.User, error) {
 	claims, err := s.tokenManager.ValidateToken(tokenString, "access")
 	if err != nil {
-		return nil, err
+		return &database.User{}, err
 	}
 
 	if claims.TokenType != "access" {
-		return nil, fmt.Errorf("invalid token type")
+		return &database.User{}, fmt.Errorf("invalid token type")
 	}
 
 	user, err := s.repo.FindUserByID(claims.UserID)
 	if err != nil {
-		return nil, err
+		return &database.User{}, err
 	}
 
 	return user, nil
@@ -85,17 +85,17 @@ func (s *AuthServiceImpl) LoginUser(ctx context.Context, username, password stri
 	// Find user by username
 	user, err := s.repo.FindUserByUsername(username)
 	if err != nil {
-		return nil, err
+		return &database.TokenPair{}, err
 	}
 
 	// Check password
 	if !user.CheckPasswordHash(password) {
-		return nil, fmt.Errorf("invalid credentials")
+		return &database.TokenPair{}, fmt.Errorf("invalid credentials")
 	}
 
 	tokens, err := s.RefreshTokens(ctx, user.ID, user.Username)
 	if err != nil {
-		return nil, err
+		return &database.TokenPair{}, err
 	}
 
 	return tokens, nil
@@ -118,11 +118,11 @@ func (s *AuthServiceImpl) RegisterUser(ctx context.Context, username, password s
 	}
 
 	if err := user.HashPassword(); err != nil {
-		return nil, err
+		return &database.User{}, err
 	}
 
 	if err := s.repo.CreateUser(user); err != nil {
-		return nil, err
+		return &database.User{}, err
 	}
 
 	return user, nil

@@ -134,13 +134,13 @@ func (tm *TokenManager) ValidateToken(
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, TokenExpiredError{Message: "Token has expired"}
 		}
-		return nil, err
+		return &Claims{}, err
 	}
 
 	// Type assert claims
 	claims, ok := token.Claims.(*Claims)
 	if !ok {
-		return nil, errors.New("invalid token claims")
+		return &Claims{}, errors.New("invalid token claims")
 	}
 
 	// Validate token type
@@ -156,6 +156,11 @@ func (tm *TokenManager) ValidateToken(
 func (tm *TokenManager) InvalidateToken(tokenString string) error {
 	if tm.blacklist.IsBlacklisted(tokenString) {
 		return TokenBlacklistedError{Message: "Token is blacklisted"}
+	}
+
+	_, err := tm.ValidateToken(tokenString, "access")
+	if err != nil {
+		return err
 	}
 
 	tm.blacklist.AddToken(tokenString, time.Now().Add(24*time.Hour))

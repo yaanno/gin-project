@@ -1,7 +1,7 @@
 package main
 
 import (
-	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -40,12 +40,16 @@ func main() {
 	}
 
 	sqliteConfig := sqlite.SQLiteConfig{
-		Path:     "./data/users.db",
-		InMemory: true,
+		Path:            "./data/users.db",
+		InMemory:        true,
+		MaxOpenConns:    10,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5 * time.Minute,
+		ConnMaxIdleTime: 30 * time.Second,
 	}
 
 	// Initialize configuration
-	_, err := config.LoadConfig()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to load configuration")
 	}
@@ -67,7 +71,7 @@ func main() {
 	// inject to service
 	userService := services.NewUserService(userRepository, log)
 	// inject to auth service
-	tokenManager := token.NewTokenManager(os.Getenv("SECRET_KEY"), os.Getenv("REFRESH_SECRET_KEY"))
+	tokenManager := token.NewTokenManager(cfg.JWTSecret, cfg.JWTRefreshSecret)
 	authService := services.NewAuthService(tokenManager, userRepository, log)
 	// inject to handler
 	userHandler := handlers.NewUserHandler(userService, log)
@@ -78,10 +82,10 @@ func main() {
 
 	// Middleware
 	router.Use(gin.Recovery())
-	router.Use(middleware.ErrorHandler())
+	router.Use(middleware.ErrorMiddleware(log))
 
 	// Not found handler
-	router.NoRoute(middleware.HandleNotFound)
+	router.NoRoute(middleware.HandleNotFound(log))
 
 	// Authentication routes
 	authGroup := router.Group("/auth")
@@ -93,7 +97,7 @@ func main() {
 
 	// User routes (protected)
 	userGroup := router.Group("/users")
-	userGroup.Use(middleware.JWTAuthMiddleware(tokenManager))
+	userGroup.Use(middleware.JWTAuthMiddleware(tokenManager, log))
 	{
 		userGroup.GET("/", userHandler.GetAllUsers)
 		userGroup.GET("/:id", userHandler.GetUserByID)
@@ -102,14 +106,19 @@ func main() {
 	}
 
 	// Get port from environment or use default
-	port := os.Getenv("SERVER_PORT")
+	port := cfg.ServerPort
 	if port == "" {
 		port = "8080"
 	}
 
-	log.Info().Str("port", port).Msg("Starting server")
+	address := cfg.ServerAddress
+	if address == "" {
+		address = "localhost"
+	}
 
-	if err := router.Run(":" + port); err != nil {
+	log.Info().Str("address", address).Str("port", port).Msg("Starting server")
+
+	if err := router.Run(address + ":" + port); err != nil {
 		log.Fatal().Err(err).Msg("Server failed to start")
 	}
 }

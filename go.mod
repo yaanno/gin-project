@@ -1,6 +1,8 @@
 module github.com/yourusername/user-management-api
 
-go 1.21
+go 1.22.0
+
+toolchain go1.23.5
 
 require (
 	github.com/gin-gonic/gin v1.10.0
@@ -11,7 +13,10 @@ require (
 	golang.org/x/crypto v0.23.0
 )
 
-require github.com/mattn/go-colorable v0.1.13 // indirect
+require (
+	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+)
 
 require (
 	github.com/bytedance/sonic v1.11.6 // indirect

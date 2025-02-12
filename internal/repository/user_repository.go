@@ -68,12 +68,12 @@ func (r *UserRepositoryImpl) FindUserByUsername(username string) (*database.User
 
 	if err == sql.ErrNoRows {
 		r.log.Error().Err(err).Msg("User not found")
-		return nil, ErrUserNotFound
+		return &database.User{}, ErrUserNotFound
 	}
 
 	if err != nil {
 		r.log.Error().Err(err).Msg("Failed to find user")
-		return nil, err
+		return &database.User{}, err
 	}
 
 	return user, nil
@@ -97,12 +97,12 @@ func (r *UserRepositoryImpl) FindUserByID(userID uint) (*database.User, error) {
 
 	if err == sql.ErrNoRows {
 		r.log.Error().Err(err).Msg("User not found")
-		return nil, ErrUserNotFound
+		return &database.User{}, ErrUserNotFound
 	}
 
 	if err != nil {
 		r.log.Error().Err(err).Msg("Failed to find user")
-		return nil, err
+		return &database.User{}, err
 	}
 
 	return user, nil
@@ -141,7 +141,7 @@ func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {
 	rows, err := r.db.Query(query)
 	if err != nil {
 		r.log.Error().Err(err).Msg("Failed to get users")
-		return nil, err
+		return []database.User{}, err
 	}
 	defer rows.Close()
 
@@ -157,13 +157,13 @@ func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {
 		)
 		if err != nil {
 			r.log.Error().Err(err).Msg("Failed to get users")
-			return nil, err
+			return []database.User{}, err
 		}
 		users = append(users, user)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return []database.User{}, err
 	}
 
 	return users, nil
