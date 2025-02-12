@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -15,7 +16,13 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateAccessToken(userID uint, username string) (string, error) {
+func GenerateAccessToken(ctx context.Context, userID uint, username string) (string, error) {
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+
 	secretKey := []byte(os.Getenv("JWT_SECRET"))
 
 	claims := JWTClaims{
@@ -33,7 +40,12 @@ func GenerateAccessToken(userID uint, username string) (string, error) {
 	return token.SignedString(secretKey)
 }
 
-func GenerateRefreshToken(userID uint, username string) (string, error) {
+func GenerateRefreshToken(ctx context.Context, userID uint, username string) (string, error) {
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
 	secretKey := []byte(os.Getenv("JWT_REFRESH_SECRET"))
 
 	claims := JWTClaims{
@@ -51,7 +63,13 @@ func GenerateRefreshToken(userID uint, username string) (string, error) {
 	return token.SignedString(secretKey)
 }
 
-func ValidateToken(tokenString string, tokenType string) (*JWTClaims, error) {
+func ValidateToken(ctx context.Context, tokenString string, tokenType string) (*JWTClaims, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	secretKey := []byte(os.Getenv("JWT_SECRET"))
 	if tokenType == "refresh" {
 		secretKey = []byte(os.Getenv("JWT_REFRESH_SECRET"))

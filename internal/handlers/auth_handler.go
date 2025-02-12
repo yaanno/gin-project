@@ -41,6 +41,8 @@ func NewAuthHandler(authService *services.AuthServiceImpl, logger zerolog.Logger
 }
 
 func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
+	ctx, cancel := utils.GetContextWithTimeout()
+	defer cancel()
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -57,7 +59,7 @@ func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	user, err := a.service.RegisterUser(req.Username, sanitizedPassword)
+	user, err := a.service.RegisterUser(ctx, req.Username, sanitizedPassword)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -67,13 +69,15 @@ func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 }
 
 func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
+	ctx, cancel := utils.GetContextWithTimeout()
+	defer cancel()
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	tokenPair, err := a.service.LoginUser(req.Username, req.Password)
+	tokenPair, err := a.service.LoginUser(ctx, req.Username, req.Password)
 	if err != nil {
 		a.logger.Err(err).Msg("Failed to login user")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
@@ -84,6 +88,8 @@ func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
 }
 
 func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
+	ctx, cancel := utils.GetContextWithTimeout()
+	defer cancel()
 	var refreshRequest struct {
 		RefreshToken string `json:"refresh_token" binding:"required"`
 	}
@@ -94,14 +100,14 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 	}
 
 	// Validate refresh token
-	accessToken, err := a.service.ValidateRefreshToken(refreshRequest.RefreshToken)
+	accessToken, err := a.service.ValidateRefreshToken(ctx, refreshRequest.RefreshToken)
 	if err != nil {
 		a.logger.Err(err).Msg("Invalid refresh token")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
 		return
 	}
 
-	tokenPair, err := a.service.RefreshTokens(accessToken.ID, accessToken.Username)
+	tokenPair, err := a.service.RefreshTokens(ctx, accessToken.ID, accessToken.Username)
 	if err != nil {
 		a.logger.Err(err).Msg("Failed to refresh tokens")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to refresh tokens"})
@@ -112,6 +118,8 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 }
 
 func (a *AuthHandlerImpl) LogoutUser(c *gin.Context) {
+	ctx, cancel := utils.GetContextWithTimeout()
+	defer cancel()
 	// Extract token from Authorization header
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
@@ -129,7 +137,7 @@ func (a *AuthHandlerImpl) LogoutUser(c *gin.Context) {
 	}
 	token := parts[1]
 
-	if err := a.service.LogoutUser(token); err != nil {
+	if err := a.service.LogoutUser(ctx, token); err != nil {
 		a.logger.Err(err).Msg("Failed to logout user")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to logout user"})
 		return

@@ -53,6 +53,8 @@ func (h *UserHandlerImpl) GetAllUsers(c *gin.Context) {
 }
 
 func (h *UserHandlerImpl) GetUserByID(c *gin.Context) {
+	_, cancel := utils.GetContextWithTimeout()
+	defer cancel()
 	// Get user ID from path parameter
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -79,6 +81,8 @@ func (h *UserHandlerImpl) GetUserByID(c *gin.Context) {
 }
 
 func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
+	_, cancel := utils.GetContextWithTimeout()
+	defer cancel()
 	// Get user ID from path parameter
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -139,6 +143,8 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 }
 
 func (h *UserHandlerImpl) DeleteUser(c *gin.Context) {
+	_, cancel := utils.GetContextWithTimeout()
+	defer cancel()
 	// Get user ID from path parameter
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

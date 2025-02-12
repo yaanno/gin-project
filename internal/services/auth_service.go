@@ -2,6 +2,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -35,20 +36,20 @@ func NewAuthService(repo repository.UserRepository, logger zerolog.Logger) *Auth
 	}
 }
 
-func (s *AuthServiceImpl) GenerateAccessToken(userID uint, username string) (string, error) {
-	return utils.GenerateAccessToken(userID, username)
+func (s *AuthServiceImpl) GenerateAccessToken(ctx context.Context, userID uint, username string) (string, error) {
+	return utils.GenerateAccessToken(ctx, userID, username)
 }
 
-func (s *AuthServiceImpl) GenerateRefreshToken(userID uint, username string) (string, error) {
-	return utils.GenerateRefreshToken(userID, username)
+func (s *AuthServiceImpl) GenerateRefreshToken(ctx context.Context, userID uint, username string) (string, error) {
+	return utils.GenerateRefreshToken(ctx, userID, username)
 }
 
-func (s *AuthServiceImpl) RefreshTokens(userID uint, username string) (*database.TokenPair, error) {
-	accessToken, err := s.GenerateAccessToken(userID, username)
+func (s *AuthServiceImpl) RefreshTokens(ctx context.Context, userID uint, username string) (*database.TokenPair, error) {
+	accessToken, err := s.GenerateAccessToken(ctx, userID, username)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := s.GenerateRefreshToken(userID, username)
+	refreshToken, err := s.GenerateRefreshToken(ctx, userID, username)
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +60,8 @@ func (s *AuthServiceImpl) RefreshTokens(userID uint, username string) (*database
 	}, nil
 }
 
-func (s *AuthServiceImpl) ValidateAccessToken(tokenString string) (*database.User, error) {
-	claims, err := utils.ValidateToken(tokenString, "access")
+func (s *AuthServiceImpl) ValidateAccessToken(ctx context.Context, tokenString string) (*database.User, error) {
+	claims, err := utils.ValidateToken(ctx, tokenString, "access")
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +78,8 @@ func (s *AuthServiceImpl) ValidateAccessToken(tokenString string) (*database.Use
 	return user, nil
 }
 
-func (s *AuthServiceImpl) ValidateRefreshToken(tokenString string) (*database.User, error) {
-	claims, err := utils.ValidateToken(tokenString, "refresh")
+func (s *AuthServiceImpl) ValidateRefreshToken(ctx context.Context, tokenString string) (*database.User, error) {
+	claims, err := utils.ValidateToken(ctx, tokenString, "refresh")
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +125,7 @@ func (s *AuthServiceImpl) IsTokenBlacklisted(token string) bool {
 	return s.blacklist.IsBlacklisted(token)
 }
 
-func (s *AuthServiceImpl) LoginUser(username, password string) (*database.TokenPair, error) {
+func (s *AuthServiceImpl) LoginUser(ctx context.Context, username, password string) (*database.TokenPair, error) {
 	// Find user by username
 	user, err := s.repo.FindUserByUsername(username)
 	if err != nil {
@@ -136,7 +137,7 @@ func (s *AuthServiceImpl) LoginUser(username, password string) (*database.TokenP
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
-	tokens, err := s.RefreshTokens(user.ID, user.Username)
+	tokens, err := s.RefreshTokens(ctx, user.ID, user.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -144,12 +145,12 @@ func (s *AuthServiceImpl) LoginUser(username, password string) (*database.TokenP
 	return tokens, nil
 }
 
-func (s *AuthServiceImpl) LogoutUser(token string) error {
+func (s *AuthServiceImpl) LogoutUser(ctx context.Context, token string) error {
 	if s.IsTokenBlacklisted(token) {
 		return fmt.Errorf("token is blacklisted")
 	}
 
-	claims, err := utils.ValidateToken(token, "access")
+	claims, err := utils.ValidateToken(ctx, token, "access")
 	if err != nil {
 		return fmt.Errorf("invalid token")
 	}
@@ -163,7 +164,9 @@ func (s *AuthServiceImpl) LogoutUser(token string) error {
 	return nil
 }
 
-func (s *AuthServiceImpl) RegisterUser(username, password string) (*database.User, error) {
+func (s *AuthServiceImpl) RegisterUser(ctx context.Context, username, password string) (*database.User, error) {
+	_, cancel := utils.GetContextWithTimeout()
+	defer cancel()
 
 	user := &database.User{
 		Username: username,
