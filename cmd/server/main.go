@@ -14,6 +14,7 @@ import (
 	"github.com/yourusername/user-management-api/internal/repository"
 	"github.com/yourusername/user-management-api/internal/services"
 	"github.com/yourusername/user-management-api/pkg/logger"
+	"github.com/yourusername/user-management-api/pkg/token"
 )
 
 func main() {
@@ -65,7 +66,9 @@ func main() {
 	userRepository := repository.NewUserRepository(db, log)
 	// inject to service
 	userService := services.NewUserService(userRepository, log)
-	authService := services.NewAuthService(userRepository, log)
+	// inject to auth service
+	tokenManager := token.NewTokenManager(os.Getenv("SECRET_KEY"), os.Getenv("REFRESH_SECRET_KEY"))
+	authService := services.NewAuthService(tokenManager, userRepository, log)
 	// inject to handler
 	userHandler := handlers.NewUserHandler(userService, log)
 	authHandler := handlers.NewAuthHandler(authService, log)
@@ -90,7 +93,7 @@ func main() {
 
 	// User routes (protected)
 	userGroup := router.Group("/users")
-	userGroup.Use(middleware.JWTAuthMiddleware(log))
+	userGroup.Use(middleware.JWTAuthMiddleware(tokenManager))
 	{
 		userGroup.GET("/", userHandler.GetAllUsers)
 		userGroup.GET("/:id", userHandler.GetUserByID)

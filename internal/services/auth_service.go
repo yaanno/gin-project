@@ -4,47 +4,38 @@ package services
 import (
 	"context"
 	"fmt"
-	"sync"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
 	"github.com/yourusername/user-management-api/internal/repository"
+	"github.com/yourusername/user-management-api/pkg/token"
 	"github.com/yourusername/user-management-api/pkg/utils"
 )
 
-type TokenBlacklist struct {
-	tokens map[string]time.Time
-	mu     sync.RWMutex
-}
-
-var GlobalTokenBlacklist = &TokenBlacklist{
-	tokens: make(map[string]time.Time),
-}
-
 type AuthServiceImpl struct {
-	logger    zerolog.Logger
-	repo      repository.UserRepository
-	blacklist *TokenBlacklist
+	logger       zerolog.Logger
+	repo         repository.UserRepository
+	tokenManager *token.TokenManager
 }
 
-func NewAuthService(repo repository.UserRepository, logger zerolog.Logger) *AuthServiceImpl {
+func NewAuthService(tokenManager *token.TokenManager, repo repository.UserRepository, logger zerolog.Logger) *AuthServiceImpl {
 	return &AuthServiceImpl{
-		repo:      repo,
-		logger:    logger.With().Str("service", "AuthService").Logger(),
-		blacklist: GlobalTokenBlacklist,
+		repo:         repo,
+		logger:       logger.With().Str("service", "AuthService").Logger(),
+		tokenManager: tokenManager,
 	}
 }
 
 func (s *AuthServiceImpl) GenerateAccessToken(ctx context.Context, userID uint, username string) (string, error) {
-	return utils.GenerateAccessToken(ctx, userID, username)
+	return s.tokenManager.GenerateToken(userID, username, "access")
 }
 
 func (s *AuthServiceImpl) GenerateRefreshToken(ctx context.Context, userID uint, username string) (string, error) {
-	return utils.GenerateRefreshToken(ctx, userID, username)
+	return s.tokenManager.GenerateToken(userID, username, "refresh")
 }
 
 func (s *AuthServiceImpl) RefreshTokens(ctx context.Context, userID uint, username string) (*database.TokenPair, error) {
+
 	accessToken, err := s.GenerateAccessToken(ctx, userID, username)
 	if err != nil {
 		return nil, err
@@ -61,7 +52,7 @@ func (s *AuthServiceImpl) RefreshTokens(ctx context.Context, userID uint, userna
 }
 
 func (s *AuthServiceImpl) ValidateAccessToken(ctx context.Context, tokenString string) (*database.User, error) {
-	claims, err := utils.ValidateToken(ctx, tokenString, "access")
+	claims, err := s.tokenManager.ValidateToken(tokenString, "access")
 	if err != nil {
 		return nil, err
 	}
@@ -78,51 +69,16 @@ func (s *AuthServiceImpl) ValidateAccessToken(ctx context.Context, tokenString s
 	return user, nil
 }
 
-func (s *AuthServiceImpl) ValidateRefreshToken(ctx context.Context, tokenString string) (*database.User, error) {
-	claims, err := utils.ValidateToken(ctx, tokenString, "refresh")
+func (s *AuthServiceImpl) ValidateRefreshToken(ctx context.Context, tokenString string) (uint, string, error) {
+	claims, err := s.tokenManager.ValidateToken(tokenString, "refresh")
 	if err != nil {
-		return nil, err
+		return 0, "", err
 	}
 
 	if claims.TokenType != "refresh" {
-		return nil, fmt.Errorf("invalid token type")
+		return 0, "", fmt.Errorf("invalid token type")
 	}
-
-	user, err := s.repo.FindUserByID(claims.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	return user, nil
-}
-
-func (s *TokenBlacklist) Add(token string, expiration time.Time) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.tokens[token] = expiration
-}
-
-func (s *TokenBlacklist) IsBlacklisted(token string) bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	// Remove expired tokens
-	for t, exp := range s.tokens {
-		if time.Now().After(exp) {
-			delete(s.tokens, t)
-		}
-	}
-
-	_, exists := s.tokens[token]
-	return exists
-}
-
-func (s *AuthServiceImpl) AddTokenToBlacklist(token string, expiration time.Time) {
-	s.blacklist.Add(token, expiration)
-}
-
-func (s *AuthServiceImpl) IsTokenBlacklisted(token string) bool {
-	return s.blacklist.IsBlacklisted(token)
+	return claims.UserID, claims.Username, nil
 }
 
 func (s *AuthServiceImpl) LoginUser(ctx context.Context, username, password string) (*database.TokenPair, error) {
@@ -146,21 +102,9 @@ func (s *AuthServiceImpl) LoginUser(ctx context.Context, username, password stri
 }
 
 func (s *AuthServiceImpl) LogoutUser(ctx context.Context, token string) error {
-	if s.IsTokenBlacklisted(token) {
-		return fmt.Errorf("token is blacklisted")
+	if err := s.tokenManager.InvalidateToken(token); err != nil {
+		return err
 	}
-
-	claims, err := utils.ValidateToken(ctx, token, "access")
-	if err != nil {
-		return fmt.Errorf("invalid token")
-	}
-
-	if claims.TokenType != "access" {
-		return fmt.Errorf("invalid token type")
-	}
-
-	s.AddTokenToBlacklist(token, time.Now().Add(24*time.Hour))
-
 	return nil
 }
 

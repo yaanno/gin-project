@@ -98,14 +98,14 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 	}
 
 	// Validate refresh token
-	accessToken, err := a.service.ValidateRefreshToken(ctx, refreshRequest.RefreshToken)
+	userID, username, err := a.service.ValidateRefreshToken(ctx, refreshRequest.RefreshToken)
 	if err != nil {
 		a.logger.Err(err).Msg("Invalid refresh token")
 		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Invalid refresh token"})
 		return
 	}
 
-	tokenPair, err := a.service.RefreshTokens(ctx, accessToken.ID, accessToken.Username)
+	tokenPair, err := a.service.RefreshTokens(ctx, userID, username)
 	if err != nil {
 		a.logger.Err(err).Msg("Failed to refresh tokens")
 		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Failed to refresh tokens", Details: err.Error()})

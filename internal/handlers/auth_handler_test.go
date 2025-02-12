@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,7 @@ import (
 	"github.com/yourusername/user-management-api/internal/database/sqlite"
 	"github.com/yourusername/user-management-api/internal/repository"
 	"github.com/yourusername/user-management-api/internal/services"
+	"github.com/yourusername/user-management-api/pkg/token"
 )
 
 func setupTestRouter() (*gin.Engine, *repository.UserRepositoryImpl) {
@@ -30,7 +32,8 @@ func setupTestRouter() (*gin.Engine, *repository.UserRepositoryImpl) {
 		fmt.Printf("%s", err)
 	}
 	repo := repository.NewUserRepository(db, zerolog.Logger{})
-	authService := services.NewAuthService(repo, zerolog.Logger{})
+	tokenManager := token.NewTokenManager(os.Getenv("SECRET_KEY"), os.Getenv("REFRESH_SECRET_KEY"))
+	authService := services.NewAuthService(tokenManager, repo, zerolog.Logger{})
 	authHandler := NewAuthHandler(authService, zerolog.Logger{})
 	router := gin.Default()
 	router.POST("/auth/register", authHandler.RegisterUser)
