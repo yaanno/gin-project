@@ -2,17 +2,16 @@
 package services
 
 import (
-	"context"
 	"time"
 
 	"github.com/yourusername/user-management-api/internal/database"
 )
 
 type UserService interface {
-	Create(ctx context.Context, user *database.User) error
-	FindByUsername(ctx context.Context, username string) (*database.User, error)
-	Update(ctx context.Context, user *database.User) error
-	Delete(ctx context.Context, userID uint) error
+	GetAllUsers() ([]database.User, error)
+	GetUserByID(userID uint) (*database.User, error)
+	UpdateUser(user *database.User) error
+	DeleteUser(userID uint) error
 }
 
 type AuthService interface {

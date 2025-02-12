@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
-	"github.com/yourusername/user-management-api/internal/repository"
+	"github.com/yourusername/user-management-api/internal/services"
 	"github.com/yourusername/user-management-api/pkg/utils"
 )
 
@@ -18,19 +18,19 @@ type UserHandler interface {
 }
 
 type UserHandlerImpl struct {
-	repo repository.UserRepository
-	log  zerolog.Logger
+	service services.UserService
+	log     zerolog.Logger
 }
 
-func NewUserHandler(repo repository.UserRepository, log zerolog.Logger) *UserHandlerImpl {
+func NewUserHandler(userService services.UserService, log zerolog.Logger) *UserHandlerImpl {
 	return &UserHandlerImpl{
-		repo: repo,
-		log:  log,
+		service: userService,
+		log:     log,
 	}
 }
 
 func (h *UserHandlerImpl) GetAllUsers(c *gin.Context) {
-	users, err := h.repo.GetAllUsers()
+	users, err := h.service.GetAllUsers()
 	if err != nil {
 		h.log.Err(err).Msg("Failed to get all users")
 		c.Error(err)
@@ -62,12 +62,8 @@ func (h *UserHandlerImpl) GetUserByID(c *gin.Context) {
 	}
 
 	// Retrieve user from database
-	user, err := h.repo.FindUserByID(uint(userID))
+	user, err := h.service.GetUserByID(uint(userID))
 	if err != nil {
-		if err == repository.ErrUserNotFound {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-			return
-		}
 		h.log.Err(err).Msg("Failed to get user by ID")
 		c.Error(err)
 		return
@@ -102,13 +98,8 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 	}
 
 	// Find existing user
-	user, err := h.repo.FindUserByID(uint(userID))
+	user, err := h.service.GetUserByID(uint(userID))
 	if err != nil {
-		if err == repository.ErrUserNotFound {
-			h.log.Error().Err(err).Msg("User not found")
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-			return
-		}
 		h.log.Error().Err(err).Msg("Failed to get user by ID")
 		c.Error(err)
 		return
@@ -138,7 +129,7 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 	}
 
 	// Save updated user
-	if err := h.repo.UpdateUser(user); err != nil {
+	if err := h.service.UpdateUser(user); err != nil {
 		h.log.Error().Err(err).Msg("Failed to update user")
 		c.Error(err)
 		return
@@ -157,7 +148,7 @@ func (h *UserHandlerImpl) DeleteUser(c *gin.Context) {
 	}
 
 	// Delete user
-	if err := h.repo.DeleteUser(uint(userID)); err != nil {
+	if err := h.service.DeleteUser(uint(userID)); err != nil {
 		h.log.Error().Err(err).Msg("Failed to delete user")
 		c.Error(err)
 		return
