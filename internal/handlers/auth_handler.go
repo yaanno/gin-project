@@ -10,24 +10,6 @@ import (
 	"github.com/yourusername/user-management-api/pkg/utils"
 )
 
-type RegisterRequest struct {
-	Username string `json:"username" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
-}
-
-type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
-type AuthHandler interface {
-	RegisterUser(c *gin.Context)
-	LoginUser(c *gin.Context)
-	RefreshTokens(c *gin.Context)
-	LogoutUser(c *gin.Context)
-}
-
 type AuthHandlerImpl struct {
 	service *services.AuthServiceImpl
 	logger  zerolog.Logger
@@ -143,5 +125,3 @@ func (a *AuthHandlerImpl) LogoutUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "User logged out successfully"})
 }
-
-var _ AuthHandler = &AuthHandlerImpl{}

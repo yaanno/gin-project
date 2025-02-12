@@ -11,43 +11,6 @@ import (
 	"github.com/yourusername/user-management-api/pkg/utils"
 )
 
-// Define response structs
-type GetAllUsersResponse struct {
-	Users []SafeUser `json:"users"` // Assuming you'll define SafeUser struct
-}
-
-type GetUserByIDResponse struct {
-	User SafeUser `json:"user"`
-}
-
-type SafeUser struct { // Struct to represent safe user info
-	ID        uint   `json:"id"`
-	Username  string `json:"username"`
-	Email     string `json:"email"`
-	CreatedAt string `json:"created_at"`           // Consider time.Time and format in handler if needed
-	UpdatedAt string `json:"updated_at,omitempty"` //omitempty if not always present
-}
-
-type UpdateUserResponse struct { // If you want to return something specific on update success
-	Message string `json:"message"`
-}
-
-type DeleteUserResponse struct { // If you want to return something specific on delete success
-	Message string `json:"message"`
-}
-
-type ErrorResponse struct {
-	Error   string `json:"error"`
-	Details string `json:"details,omitempty"` // Optional details for debugging (hide in prod)
-}
-
-type UserHandler interface {
-	GetAllUsers(c *gin.Context)
-	GetUserByID(c *gin.Context)
-	UpdateUser(c *gin.Context)
-	DeleteUser(c *gin.Context)
-}
-
 type UserHandlerImpl struct {
 	service services.UserService
 	log     zerolog.Logger
@@ -197,5 +160,3 @@ func (h *UserHandlerImpl) parseUserID(c *gin.Context) (uint64, bool) {
 	}
 	return userID, true
 }
-
-var _ UserHandler = (*UserHandlerImpl)(nil)
