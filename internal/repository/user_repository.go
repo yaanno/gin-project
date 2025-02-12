@@ -41,7 +41,15 @@ func (r *UserRepositoryImpl) CreateUser(user *database.User) error {
 		RETURNING id
 	`
 	err := r.db.QueryRow(query, user.Username, user.Email, user.Password).Scan(&user.ID)
-	return err
+	if err != nil {
+		if err == sql.ErrNoRows {
+			r.log.Error().Err(err).Msg("User not found")
+			return ErrUserNotFound
+		}
+		r.log.Error().Err(err).Msg("Failed to create user")
+		return err
+	}
+	return nil
 }
 
 func (r *UserRepositoryImpl) FindUserByUsername(username string) (*database.User, error) {
@@ -144,6 +152,10 @@ func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {
 			return nil, err
 		}
 		users = append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return users, nil

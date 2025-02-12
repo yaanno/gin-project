@@ -105,7 +105,7 @@ func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 
 	// Save user to database
 	if err := a.repo.CreateUser(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
