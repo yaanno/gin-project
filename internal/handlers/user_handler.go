@@ -86,7 +86,7 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 	// Get user ID from path parameter
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		h.log.Err(err).Msg("Invalid user ID")
+		h.log.Error().Err(err).Msg("Invalid user ID")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
@@ -105,10 +105,11 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 	user, err := h.repo.FindUserByID(uint(userID))
 	if err != nil {
 		if err == repository.ErrUserNotFound {
+			h.log.Error().Err(err).Msg("User not found")
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
 		}
-		h.log.Err(err).Msg("Failed to get user by ID")
+		h.log.Error().Err(err).Msg("Failed to get user by ID")
 		c.Error(err)
 		return
 	}
@@ -130,7 +131,7 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 		// Hash new password
 		user.Password = sanitizedPassword
 		if err := user.HashPassword(); err != nil {
-			h.log.Err(err).Msg("Failed to hash password")
+			h.log.Error().Err(err).Msg("Failed to hash password")
 			c.Error(err)
 			return
 		}
@@ -138,7 +139,7 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 
 	// Save updated user
 	if err := h.repo.UpdateUser(user); err != nil {
-		h.log.Err(err).Msg("Failed to update user")
+		h.log.Error().Err(err).Msg("Failed to update user")
 		c.Error(err)
 		return
 	}
@@ -150,14 +151,14 @@ func (h *UserHandlerImpl) DeleteUser(c *gin.Context) {
 	// Get user ID from path parameter
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		h.log.Err(err).Msg("Invalid user ID")
+		h.log.Error().Err(err).Msg("Invalid user ID")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
 	// Delete user
 	if err := h.repo.DeleteUser(uint(userID)); err != nil {
-		h.log.Err(err).Msg("Failed to delete user")
+		h.log.Error().Err(err).Msg("Failed to delete user")
 		c.Error(err)
 		return
 	}
