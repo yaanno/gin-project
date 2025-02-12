@@ -35,7 +35,7 @@ func main() {
 
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
-		log.Fatal().Err(err).Msg("Error loading .env file")
+		log.Warn().Err(err).Msg("Error loading .env file")
 	}
 
 	sqliteConfig := sqlite.SQLiteConfig{
