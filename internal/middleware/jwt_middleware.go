@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -27,7 +28,7 @@ func JWTAuthMiddleware(log zerolog.Logger) gin.HandlerFunc {
 			return
 		}
 
-		claims, err := utils.ValidateToken(parts[1], "access")
+		claims, err := utils.ValidateToken(context.Background(), parts[1], "access")
 		if err != nil {
 			log.Info().Err(err).Msg("Invalid token")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})

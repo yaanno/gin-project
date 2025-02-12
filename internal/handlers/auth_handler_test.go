@@ -15,15 +15,19 @@ import (
 
 	"github.com/yourusername/user-management-api/internal/database/sqlite"
 	"github.com/yourusername/user-management-api/internal/repository"
+	"github.com/yourusername/user-management-api/internal/services"
 )
 
 func setupTestRouter() (*gin.Engine, *repository.UserRepositoryImpl) {
-	db, err := sqlite.CreateInMemoryTestDB()
+	db, err := sqlite.NewSQLiteDatabase(sqlite.SQLiteConfig{
+		InMemory: true,
+	})
 	if err != nil {
 		fmt.Printf("%s", err)
 	}
 	repo := repository.NewUserRepository(db, zerolog.Logger{})
-	authHandler := NewAuthHandler(repo, zerolog.Logger{})
+	authService := services.NewAuthService(repo, zerolog.Logger{})
+	authHandler := NewAuthHandler(authService, zerolog.Logger{})
 	router := gin.Default()
 	router.POST("/auth/register", authHandler.RegisterUser)
 	router.POST("/auth/login", authHandler.LoginUser)

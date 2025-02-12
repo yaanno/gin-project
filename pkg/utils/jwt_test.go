@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -13,24 +14,24 @@ func TestJWTTokenGeneration(t *testing.T) {
 	username := "testuser"
 
 	// Test Access Token
-	accessToken, err := GenerateAccessToken(userID, username)
+	accessToken, err := GenerateAccessToken(context.Background(), userID, username)
 	require.NoError(t, err)
 	assert.NotEmpty(t, accessToken)
 
 	// Validate Access Token
-	claims, err := ValidateToken(accessToken, "access")
+	claims, err := ValidateToken(context.Background(), accessToken, "access")
 	require.NoError(t, err)
 	assert.Equal(t, userID, claims.UserID)
 	assert.Equal(t, username, claims.Username)
 	assert.Equal(t, "access", claims.TokenType)
 
 	// Test Refresh Token
-	refreshToken, err := GenerateRefreshToken(userID, username)
+	refreshToken, err := GenerateRefreshToken(context.Background(), userID, username)
 	require.NoError(t, err)
 	assert.NotEmpty(t, refreshToken)
 
 	// Validate Refresh Token
-	refreshClaims, err := ValidateToken(refreshToken, "refresh")
+	refreshClaims, err := ValidateToken(context.Background(), refreshToken, "refresh")
 	require.NoError(t, err)
 	assert.Equal(t, userID, refreshClaims.UserID)
 	assert.Equal(t, username, refreshClaims.Username)
@@ -42,10 +43,10 @@ func TestTokenExpiration(t *testing.T) {
 	username := "testuser"
 
 	// Test Access Token Expiration
-	accessToken, err := GenerateAccessToken(userID, username)
+	accessToken, err := GenerateAccessToken(context.Background(), userID, username)
 	require.NoError(t, err)
 
-	claims, err := ValidateToken(accessToken, "access")
+	claims, err := ValidateToken(context.Background(), accessToken, "access")
 	require.NoError(t, err)
 
 	// Check expiration is within 24 hours
