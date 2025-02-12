@@ -5,8 +5,14 @@ import (
 	"time"
 )
 
-func GetContextWithTimeout() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), 10*time.Second)
+func GetContextWithTimeout(duration ...time.Duration) (context.Context, context.CancelFunc) {
+	defaultTimeout := 10 * time.Second
+
+	if len(duration) > 0 {
+		defaultTimeout = duration[0]
+	}
+
+	return context.WithTimeout(context.Background(), defaultTimeout)
 }
 
 func GetContextWithCancel() (context.Context, context.CancelFunc) {
