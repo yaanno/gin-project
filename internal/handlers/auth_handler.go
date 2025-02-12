@@ -36,7 +36,7 @@ type AuthHandlerImpl struct {
 func NewAuthHandler(authService *services.AuthServiceImpl, logger zerolog.Logger) *AuthHandlerImpl {
 	return &AuthHandlerImpl{
 		service: authService,
-		logger:  logger,
+		logger:  logger.With().Str("handler", "AuthHandler").Logger(),
 	}
 }
 

@@ -31,7 +31,7 @@ type AuthServiceImpl struct {
 func NewAuthService(repo repository.UserRepository, logger zerolog.Logger) *AuthServiceImpl {
 	return &AuthServiceImpl{
 		repo:      repo,
-		logger:    logger,
+		logger:    logger.With().Str("service", "AuthService").Logger(),
 		blacklist: GlobalTokenBlacklist,
 	}
 }

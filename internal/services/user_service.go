@@ -15,7 +15,7 @@ type UserServiceImpl struct {
 func NewUserService(repo repository.UserRepository, logger zerolog.Logger) *UserServiceImpl {
 	return &UserServiceImpl{
 		repo:   repo,
-		logger: logger,
+		logger: logger.With().Str("service", "UserService").Logger(),
 	}
 }
 

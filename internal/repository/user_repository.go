@@ -30,7 +30,7 @@ type UserRepositoryImpl struct {
 func NewUserRepository(db *sqlite.SQLiteDatabase, log zerolog.Logger) *UserRepositoryImpl {
 	return &UserRepositoryImpl{
 		db:  db,
-		log: log,
+		log: log.With().Str("repository", "UserRepository").Logger(),
 	}
 }
 
@@ -67,10 +67,12 @@ func (r *UserRepositoryImpl) FindUserByUsername(username string) (*database.User
 	)
 
 	if err == sql.ErrNoRows {
+		r.log.Error().Err(err).Msg("User not found")
 		return nil, ErrUserNotFound
 	}
 
 	if err != nil {
+		r.log.Error().Err(err).Msg("Failed to find user")
 		return nil, err
 	}
 
@@ -94,10 +96,12 @@ func (r *UserRepositoryImpl) FindUserByID(userID uint) (*database.User, error) {
 	)
 
 	if err == sql.ErrNoRows {
+		r.log.Error().Err(err).Msg("User not found")
 		return nil, ErrUserNotFound
 	}
 
 	if err != nil {
+		r.log.Error().Err(err).Msg("Failed to find user")
 		return nil, err
 	}
 
@@ -112,6 +116,7 @@ func (r *UserRepositoryImpl) UpdateUser(user *database.User) error {
 	`
 	_, err := r.db.ExecuteQuery(query, user.Email, user.Password, user.ID)
 	if err != nil {
+		r.log.Error().Err(err).Msg("Failed to update user")
 		return err
 	}
 	return nil
@@ -121,6 +126,7 @@ func (r *UserRepositoryImpl) DeleteUser(userID uint) error {
 	query := `DELETE FROM users WHERE id = $1`
 	_, err := r.db.ExecuteQuery(query, userID)
 	if err != nil {
+		r.log.Error().Err(err).Msg("Failed to delete user")
 		return err
 	}
 	return nil
@@ -134,6 +140,7 @@ func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {
 	`
 	rows, err := r.db.Query(query)
 	if err != nil {
+		r.log.Error().Err(err).Msg("Failed to get users")
 		return nil, err
 	}
 	defer rows.Close()
@@ -149,6 +156,7 @@ func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {
 			&user.UpdatedAt,
 		)
 		if err != nil {
+			r.log.Error().Err(err).Msg("Failed to get users")
 			return nil, err
 		}
 		users = append(users, user)
