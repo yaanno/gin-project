@@ -48,14 +48,14 @@ func main() {
 	}
 
 	// Initialize database connection
-	db, err := sqlite.InitSQLite(sqliteConfig)
+	db, err := sqlite.NewSQLiteDatabase(sqliteConfig)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to connect to database")
 	}
 	defer db.Close()
 
 	// Run migrations
-	if err := sqlite.RunSQLiteMigrations(); err != nil {
+	if err := db.RunSQLiteMigrations(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to run migrations")
 	}
 

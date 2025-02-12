@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
+	"github.com/yourusername/user-management-api/internal/database/sqlite"
 )
 
 var (
@@ -22,11 +23,11 @@ type UserRepository interface {
 }
 
 type UserRepositoryImpl struct {
-	db  *sql.DB
+	db  *sqlite.SQLiteDatabase
 	log zerolog.Logger
 }
 
-func NewUserRepository(db *sql.DB, log zerolog.Logger) *UserRepositoryImpl {
+func NewUserRepository(db *sqlite.SQLiteDatabase, log zerolog.Logger) *UserRepositoryImpl {
 	return &UserRepositoryImpl{
 		db:  db,
 		log: log,
@@ -101,14 +102,20 @@ func (r *UserRepositoryImpl) UpdateUser(user *database.User) error {
 		SET email = $1, password = $2, updated_at = NOW()
 		WHERE id = $3
 	`
-	_, err := r.db.Exec(query, user.Email, user.Password, user.ID)
-	return err
+	_, err := r.db.ExecuteQuery(query, user.Email, user.Password, user.ID)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *UserRepositoryImpl) DeleteUser(userID uint) error {
 	query := `DELETE FROM users WHERE id = $1`
-	_, err := r.db.Exec(query, userID)
-	return err
+	_, err := r.db.ExecuteQuery(query, userID)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {

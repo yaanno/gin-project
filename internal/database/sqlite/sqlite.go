@@ -1,11 +1,13 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -15,12 +17,12 @@ type SQLiteConfig struct {
 	InMemory bool
 }
 
-var (
-	sqliteDB *sql.DB
-)
+type SQLiteDatabase struct {
+	db *sql.DB
+}
 
 // InitSQLite initializes a SQLite database connection
-func InitSQLite(config SQLiteConfig) (*sql.DB, error) {
+func NewSQLiteDatabase(config SQLiteConfig) (*SQLiteDatabase, error) {
 	var (
 		connStr string
 		err     error
@@ -45,25 +47,27 @@ func InitSQLite(config SQLiteConfig) (*sql.DB, error) {
 	}
 
 	// Open database connection
-	sqliteDB, err = sql.Open("sqlite3", connStr)
+	db, err := sql.Open("sqlite3", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("error opening SQLite database: %v", err)
 	}
 
 	// Configure connection pool
-	sqliteDB.SetMaxOpenConns(1)
-	sqliteDB.SetMaxIdleConns(1)
+	db.SetMaxOpenConns(25)                 // Maximum number of open connections
+	db.SetMaxIdleConns(25)                 // Maximum number of idle connections
+	db.SetConnMaxLifetime(5 * time.Minute) // Maximum lifetime of a connection
+	db.SetConnMaxIdleTime(3 * time.Minute) // Maximum idle time before closing
 
 	// Test the connection
-	if err = sqliteDB.Ping(); err != nil {
+	if err = db.Ping(); err != nil {
 		return nil, fmt.Errorf("error connecting to SQLite database: %v", err)
 	}
 
-	return sqliteDB, nil
+	return &SQLiteDatabase{db: db}, nil
 }
 
 // RunSQLiteMigrations sets up the necessary tables
-func RunSQLiteMigrations() error {
+func (s *SQLiteDatabase) RunSQLiteMigrations() error {
 	// Create users table
 	createUserTableQuery := `
 		CREATE TABLE IF NOT EXISTS users (
@@ -81,13 +85,60 @@ func RunSQLiteMigrations() error {
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
 	`
 
-	_, err := sqliteDB.Exec(createUserTableQuery)
+	_, err := s.db.Exec(createUserTableQuery)
 	if err != nil {
 		log.Printf("Error creating users table: %v", err)
 		return err
 	}
 
 	return nil
+}
+
+func (s *SQLiteDatabase) Conn(ctx context.Context) (*sql.Conn, error) {
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error connecting to SQLite database: %v", err)
+	}
+	return conn, nil
+}
+
+func (s *SQLiteDatabase) ExecuteQuery(query string, args ...interface{}) (sql.Result, error) {
+	conn, err := s.Conn(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("error connecting to SQLite database: %v", err)
+	}
+	defer conn.Close()
+
+	res, err := conn.ExecContext(context.Background(), query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error executing query: %v", err)
+	}
+	return res, nil
+}
+
+func (s *SQLiteDatabase) Query(query string, args ...interface{}) (*sql.Rows, error) {
+	conn, err := s.Conn(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("error connecting to SQLite database: %v", err)
+	}
+	defer conn.Close()
+
+	rows, err := conn.QueryContext(context.Background(), query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error executing query: %v", err)
+	}
+	return rows, nil
+}
+
+func (s *SQLiteDatabase) QueryRow(query string, args ...interface{}) *sql.Row {
+	conn, err := s.Conn(context.Background())
+	if err != nil {
+		return nil
+	}
+	defer conn.Close()
+
+	row := conn.QueryRowContext(context.Background(), query, args...)
+	return row
 }
 
 // CreateInMemoryTestDB creates an in-memory test database
@@ -120,8 +171,8 @@ func CreateInMemoryTestDB() (*sql.DB, error) {
 }
 
 // CloseSQLiteDB closes the database connection
-func CloseSQLiteDB() {
-	if sqliteDB != nil {
-		sqliteDB.Close()
+func (s *SQLiteDatabase) Close() {
+	if s.db != nil {
+		s.db.Close()
 	}
 }
