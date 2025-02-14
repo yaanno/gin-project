@@ -16,7 +16,6 @@ func setupSQLiteTestDB(t *testing.T) *sqlite.SQLiteDatabase {
 	// Create an in-memory test database
 	db, err := sqlite.CreateInMemoryTestDB()
 	require.NoError(t, err)
-
 	return db
 }
 
@@ -64,6 +63,29 @@ func TestCreateUser(t *testing.T) {
 	err := repo.CreateUser(user)
 	require.NoError(t, err)
 	assert.NotZero(t, user.ID)
+}
+
+func TestFindUserByID(t *testing.T) {
+	db := setupSQLiteTestDB(t)
+	defer db.Close()
+
+	user := &database.User{
+		Username: "testuser",
+		Email:    "test@example.com",
+		Password: "TestPassword123!",
+	}
+
+	repo := repository.NewUserRepository(db, zerolog.Logger{})
+
+	err := repo.CreateUser(user)
+	require.NoError(t, err)
+	require.NoError(t, err)
+
+	// Then try to find the user
+	foundUser, err := repo.FindUserByID(user.ID)
+	require.NoError(t, err)
+	assert.Equal(t, user.Username, foundUser.Username)
+	assert.Equal(t, user.Email, foundUser.Email)
 }
 
 func TestFindUserByUsername(t *testing.T) {
