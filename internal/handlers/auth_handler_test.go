@@ -20,8 +20,9 @@ import (
 
 var db, _ = sqlite.CreateInMemoryTestDB()
 var repo = repository.NewUserRepository(db, zerolog.Logger{})
+var loginAttemptRepo = repository.NewLoginAttemptRepository(db, zerolog.Logger{})
 var tokenManager = token.NewTokenManager("secret_key", "refresh_secret_key")
-var authService = services.NewAuthService(tokenManager, repo, zerolog.Logger{})
+var authService = services.NewAuthService(tokenManager, repo, loginAttemptRepo, zerolog.Logger{})
 var authHandler = NewAuthHandler(authService, zerolog.Logger{})
 
 func setupTestRouter() *gin.Engine {

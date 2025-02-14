@@ -22,7 +22,7 @@ type AuthService interface {
 	RefreshTokens(ctx context.Context, userID uint, username string) (*database.TokenPair, error)
 
 	RegisterUser(ctx context.Context, username, password, email string) (*database.User, error)
-	LoginUser(ctx context.Context, username, password string) (*database.TokenPair, error)
+	LoginUser(ctx context.Context, username, password, ipAddr string) (*database.TokenPair, error)
 	LogoutUser(ctx context.Context, token string) error
 }
 

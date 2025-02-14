@@ -12,17 +12,21 @@ import (
 	"github.com/yourusername/user-management-api/pkg/utils"
 )
 
+const MAX_LOGIN_ATTEMPTS = 5
+
 type AuthServiceImpl struct {
-	logger       zerolog.Logger
-	repo         repository.UserRepository
-	tokenManager *token.TokenManager
+	logger           zerolog.Logger
+	repo             repository.UserRepository
+	loginAttemptRepo repository.LoginAttemptRepository
+	tokenManager     *token.TokenManager
 }
 
-func NewAuthService(tokenManager *token.TokenManager, repo repository.UserRepository, logger zerolog.Logger) *AuthServiceImpl {
+func NewAuthService(tokenManager *token.TokenManager, repo repository.UserRepository, loginAttemptRepo repository.LoginAttemptRepository, logger zerolog.Logger) *AuthServiceImpl {
 	return &AuthServiceImpl{
-		repo:         repo,
-		logger:       logger.With().Str("service", "AuthService").Logger(),
-		tokenManager: tokenManager,
+		repo:             repo,
+		logger:           logger.With().Str("service", "AuthService").Logger(),
+		loginAttemptRepo: loginAttemptRepo,
+		tokenManager:     tokenManager,
 	}
 }
 
@@ -81,15 +85,39 @@ func (s *AuthServiceImpl) ValidateRefreshToken(ctx context.Context, tokenString 
 	return claims.UserID, claims.Username, nil
 }
 
-func (s *AuthServiceImpl) LoginUser(ctx context.Context, username, password string) (*database.TokenPair, error) {
+func (s *AuthServiceImpl) LoginUser(ctx context.Context, username, password, ipAddr string) (*database.TokenPair, error) {
+	// check for lockout
+	attempts, err := s.loginAttemptRepo.GetLoginAttempts(username, ipAddr)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("Failed to get login attempts")
+		return nil, fmt.Errorf("internal server error")
+	}
+
+	if attempts >= MAX_LOGIN_ATTEMPTS {
+		s.logger.Warn().Msgf("Too many failed login attempts for user: %s from IP: %s", username, ipAddr)
+		return nil, fmt.Errorf("too many failed login attempts")
+	}
+
 	// Find user by username
 	user, err := s.repo.FindUserByUsername(username)
 	if err != nil {
+		// Log the error for debugging, but don't expose details to the user
+		s.logger.Error().Err(err).Msgf("Failed to find user: %s", username)
+
+		// Increment failed attempts even if the user isn't found (for brute-force protection)
+		if err := s.loginAttemptRepo.IncrementLoginAttempts(username, ipAddr, false); err != nil {
+			s.logger.Error().Err(err).Msg("Failed to record login attempt") // Log this, but don't stop the flow
+		}
 		return &database.TokenPair{}, err
 	}
 
 	// Check password
 	if !user.CheckPasswordHash(password) {
+		s.logger.Info().Msgf("Failed login attempt for user: %s from IP: %s", username, ipAddr) // Log the failed attempt
+
+		if err := s.loginAttemptRepo.IncrementLoginAttempts(username, ipAddr, false); err != nil {
+			s.logger.Error().Err(err).Msg("Failed to record login attempt")
+		}
 		return &database.TokenPair{}, fmt.Errorf("invalid credentials")
 	}
 

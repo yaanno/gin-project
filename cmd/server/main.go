@@ -76,8 +76,9 @@ func main() {
 	// inject to service
 	userService := services.NewUserService(userRepository, log)
 	// inject to auth service
+	loginAttemptRepository := repository.NewLoginAttemptRepository(db, log)
 	tokenManager := token.NewTokenManager(cfg.JWTSecret, cfg.JWTRefreshSecret)
-	authService := services.NewAuthService(tokenManager, userRepository, log)
+	authService := services.NewAuthService(tokenManager, userRepository, loginAttemptRepository, log)
 	// inject to handler
 	userHandler := handlers.NewUserHandler(userService, log)
 	authHandler := handlers.NewAuthHandler(authService, log)
@@ -96,6 +97,9 @@ func main() {
 
 	// Add sanitization middleware
 	router.Use(middleware.SanitizationMiddleware())
+
+	// Add rate limit middleware
+	router.Use(middleware.RateLimitMiddleware(cfg.RateLimitLimit, cfg.RateLimitBurst, cfg.RateLimitDuration))
 
 	// Api routes
 	// Authentication routes

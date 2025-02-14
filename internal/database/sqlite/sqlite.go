@@ -95,6 +95,24 @@ func (s *SQLiteDatabase) RunSQLiteMigrations() error {
 		return err
 	}
 
+	createLoginAttemptTableQuery := `
+		CREATE TABLE login_attempts (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username VARCHAR(255) NOT NULL,
+			ip_address VARCHAR(45) NOT NULL,   
+			attempts INTEGER NOT NULL DEFAULT 0,
+			last_attempt DATETIME,
+			success BOOLEAN                     
+		);
+
+		CREATE UNIQUE INDEX idx_username_ip ON login_attempts (username, ip_address); 
+	`
+	_, err = s.db.Exec(createLoginAttemptTableQuery)
+	if err != nil {
+		s.db.Close()
+		return fmt.Errorf("error creating login_attempts table in test database: %v", err)
+	}
+
 	return nil
 }
 
@@ -146,6 +164,24 @@ func CreateInMemoryTestDB() (*SQLiteDatabase, error) {
 	if err != nil {
 		db.Close()
 		return &SQLiteDatabase{}, fmt.Errorf("error creating users table in test database: %v", err)
+	}
+
+	createLoginAttemptTableQuery := `
+		CREATE TABLE login_attempts (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username VARCHAR(255) NOT NULL,
+		ip_address VARCHAR(45) NOT NULL,   
+		attempts INTEGER NOT NULL DEFAULT 0,
+		last_attempt DATETIME,
+		success BOOLEAN                     
+	);
+
+	CREATE UNIQUE INDEX idx_username_ip ON login_attempts (username, ip_address); 
+	`
+	_, err = db.Exec(createLoginAttemptTableQuery)
+	if err != nil {
+		db.Close()
+		return &SQLiteDatabase{}, fmt.Errorf("error creating login_attempts table in test database: %v", err)
 	}
 
 	return &SQLiteDatabase{db: db}, nil

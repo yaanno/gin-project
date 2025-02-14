@@ -37,6 +37,11 @@ type Config struct {
 	AccessTokenTTL   time.Duration
 	RefreshTokenTTL  time.Duration
 
+	// Rate Limit Configuration
+	RateLimitLimit    int
+	RateLimitBurst    int64
+	RateLimitDuration time.Duration
+
 	// Logging Configuration
 	LogLevel zerolog.Level
 	LogPath  string

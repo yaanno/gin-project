@@ -57,7 +57,8 @@ func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
 		return
 	}
 
-	tokenPair, err := a.service.LoginUser(ctx, req.Username, req.Password)
+	ipAddr := c.ClientIP()
+	tokenPair, err := a.service.LoginUser(ctx, req.Username, req.Password, ipAddr)
 	if err != nil {
 		a.logger.Err(err).Msg("Failed to login user")
 		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: err.Error()})
