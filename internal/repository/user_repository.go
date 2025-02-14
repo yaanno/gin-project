@@ -37,7 +37,7 @@ func NewUserRepository(db *sqlite.SQLiteDatabase, log zerolog.Logger) *UserRepos
 func (r *UserRepositoryImpl) CreateUser(user *database.User) error {
 	query := `
 		INSERT INTO users (username, email, password, created_at, updated_at)
-		VALUES ($1, $2, $3, NOW(), NOW())
+		VALUES ($1, $2, $3, datetime('now'), datetime('now'))
 		RETURNING id
 	`
 	err := r.db.QueryRow(query, user.Username, user.Email, user.Password).Scan(&user.ID)
@@ -111,7 +111,7 @@ func (r *UserRepositoryImpl) FindUserByID(userID uint) (*database.User, error) {
 func (r *UserRepositoryImpl) UpdateUser(user *database.User) error {
 	query := `
 		UPDATE users 
-		SET email = $1, password = $2, updated_at = NOW()
+		SET email = $1, password = $2, updated_at = datetime('now')
 		WHERE id = $3
 	`
 	_, err := r.db.ExecuteQuery(query, user.Email, user.Password, user.ID)

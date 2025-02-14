@@ -1,6 +1,11 @@
 package main
 
 import (
+	"context"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -92,6 +97,7 @@ func main() {
 	// Add sanitization middleware
 	router.Use(middleware.SanitizationMiddleware())
 
+	// Api routes
 	// Authentication routes
 	authGroup := router.Group("/auth")
 	{
@@ -122,9 +128,35 @@ func main() {
 		address = "localhost"
 	}
 
-	log.Info().Str("address", address).Str("port", port).Msg("Starting server")
+	srv := http.Server{
+		Addr:    address + ":" + port,
+		Handler: router.Handler(),
+	}
 
-	if err := router.Run(address + ":" + port); err != nil {
-		log.Fatal().Err(err).Msg("Server failed to start")
+	go func() {
+		log.Info().Str("address", address).Str("port", port).Msg("Starting server")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal().Err(err).Msg("Server failed to start")
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Info().Msg("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Error().Err(err).Msg("Failed to shutdown server")
+	}
+
+	select {
+	case <-ctx.Done():
+		log.Error().Err(ctx.Err()).Msg("Timeout shutting down server")
+	default:
+		log.Info().Msg("Server shut down")
 	}
 }
