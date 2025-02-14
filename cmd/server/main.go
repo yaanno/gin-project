@@ -82,10 +82,15 @@ func main() {
 
 	// Middleware
 	router.Use(gin.Recovery())
+
+	// Add error middleware
 	router.Use(middleware.ErrorMiddleware(log))
 
 	// Not found handler
 	router.NoRoute(middleware.HandleNotFound(log))
+
+	// Add sanitization middleware
+	router.Use(middleware.SanitizationMiddleware())
 
 	// Authentication routes
 	authGroup := router.Group("/auth")
@@ -97,6 +102,7 @@ func main() {
 
 	// User routes (protected)
 	userGroup := router.Group("/users")
+	// Add JWT middleware
 	userGroup.Use(middleware.JWTAuthMiddleware(tokenManager, log))
 	{
 		userGroup.GET("/", userHandler.GetAllUsers)
