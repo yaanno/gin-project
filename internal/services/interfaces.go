@@ -21,7 +21,7 @@ type AuthService interface {
 	ValidateAccessToken(ctx context.Context, token string) (*database.User, error)
 	RefreshTokens(ctx context.Context, userID uint, username string) (*database.TokenPair, error)
 
-	RegisterUser(ctx context.Context, username, password string) (*database.User, error)
+	RegisterUser(ctx context.Context, username, password, email string) (*database.User, error)
 	LoginUser(ctx context.Context, username, password string) (*database.TokenPair, error)
 	LogoutUser(ctx context.Context, token string) error
 }

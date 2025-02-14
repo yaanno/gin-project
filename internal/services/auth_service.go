@@ -108,13 +108,14 @@ func (s *AuthServiceImpl) LogoutUser(ctx context.Context, token string) error {
 	return nil
 }
 
-func (s *AuthServiceImpl) RegisterUser(ctx context.Context, username, password string) (*database.User, error) {
+func (s *AuthServiceImpl) RegisterUser(ctx context.Context, username, password, email string) (*database.User, error) {
 	_, cancel := utils.GetContextWithTimeout()
 	defer cancel()
 
 	user := &database.User{
 		Username: username,
 		Password: password,
+		Email:    email,
 	}
 
 	if err := user.HashPassword(); err != nil {

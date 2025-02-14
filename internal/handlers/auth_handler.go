@@ -39,7 +39,7 @@ func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	user, err := a.service.RegisterUser(ctx, req.Username, sanitizedPassword)
+	user, err := a.service.RegisterUser(ctx, req.Username, sanitizedPassword, req.Email)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		return

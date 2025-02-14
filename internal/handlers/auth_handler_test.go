@@ -3,10 +3,8 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -20,31 +18,22 @@ import (
 	"github.com/yourusername/user-management-api/pkg/token"
 )
 
-func setupTestRouter() (*gin.Engine, *repository.UserRepositoryImpl) {
-	db, err := sqlite.NewSQLiteDatabase(sqlite.SQLiteConfig{
-		InMemory: true,
-	})
-	if err != nil {
-		fmt.Printf("%s", err)
-	}
-	err = db.RunSQLiteMigrations()
-	if err != nil {
-		fmt.Printf("%s", err)
-	}
-	repo := repository.NewUserRepository(db, zerolog.Logger{})
-	tokenManager := token.NewTokenManager(os.Getenv("SECRET_KEY"), os.Getenv("REFRESH_SECRET_KEY"))
-	authService := services.NewAuthService(tokenManager, repo, zerolog.Logger{})
-	authHandler := NewAuthHandler(authService, zerolog.Logger{})
+var db, _ = sqlite.CreateInMemoryTestDB()
+var repo = repository.NewUserRepository(db, zerolog.Logger{})
+var tokenManager = token.NewTokenManager("secret_key", "refresh_secret_key")
+var authService = services.NewAuthService(tokenManager, repo, zerolog.Logger{})
+var authHandler = NewAuthHandler(authService, zerolog.Logger{})
+
+func setupTestRouter() *gin.Engine {
 	router := gin.Default()
 	router.POST("/auth/register", authHandler.RegisterUser)
 	router.POST("/auth/login", authHandler.LoginUser)
-	return router, repo
+	return router
 }
 
 func TestRegisterUser(t *testing.T) {
-	router, repo := setupTestRouter()
+	router := setupTestRouter()
 
-	// Test successful registration
 	registrationPayload := map[string]string{
 		"username": "newuser",
 		"email":    "newuser@example.com",
@@ -65,9 +54,76 @@ func TestRegisterUser(t *testing.T) {
 	assert.Equal(t, "newuser@example.com", user.Email)
 }
 
+func TestRegisterUserWithoutEmail(t *testing.T) {
+	router := setupTestRouter()
+
+	registrationPayload := map[string]string{
+		"username": "newuser",
+		"password": "StrongP@ssw0rd2024!",
+	}
+	jsonPayload, _ := json.Marshal(registrationPayload)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/auth/register", bytes.NewBuffer(jsonPayload))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestRegisterUserWithoutPassword(t *testing.T) {
+	router := setupTestRouter()
+
+	registrationPayload := map[string]string{
+		"username": "newuser",
+		"email":    "newuser@example.com",
+	}
+	jsonPayload, _ := json.Marshal(registrationPayload)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/auth/register", bytes.NewBuffer(jsonPayload))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestRegisterUserWithoutUsername(t *testing.T) {
+	router := setupTestRouter()
+	registrationPayload := map[string]string{
+		"password": "StrongP@ssw0rd2024!",
+		"email":    "newuser@example.com",
+	}
+	jsonPayload, _ := json.Marshal(registrationPayload)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/auth/register", bytes.NewBuffer(jsonPayload))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+func TestRegisterUserWithWeakPassword(t *testing.T) {
+	router := setupTestRouter()
+
+	registrationPayload := map[string]string{
+		"password": "weakpassword",
+		"email":    "newuser@example.com",
+		"username": "newuser",
+	}
+	jsonPayload, _ := json.Marshal(registrationPayload)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("POST", "/auth/register", bytes.NewBuffer(jsonPayload))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestLoginUser(t *testing.T) {
 	// First, register a user
-	router, _ := setupTestRouter()
+	router := setupTestRouter()
 	registrationPayload := map[string]string{
 		"username": "loginuser",
 		"email":    "loginuser@example.com",
