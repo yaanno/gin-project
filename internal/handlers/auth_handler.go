@@ -32,8 +32,9 @@ func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 	}
 
 	// Validate password complexity
-	sanitizedPassword := utils.SanitizePassword(req.Password)
-	if !utils.IsPasswordComplex(sanitizedPassword) {
+	p := &utils.PasswordValidatorImpl{}
+	sanitizedPassword := p.SanitizePassword(req.Password)
+	if !p.IsPasswordComplex(sanitizedPassword) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Password does not meet complexity requirements. " +
 			"Minimum 12 characters with uppercase, lowercase, number, and special character."})
 		return

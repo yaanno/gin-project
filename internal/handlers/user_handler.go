@@ -106,8 +106,9 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 	// Update password if provided
 	if updateReq.Password != "" {
 		// Validate password complexity
-		sanitizedPassword := utils.SanitizePassword(updateReq.Password)
-		if !utils.IsPasswordComplex(sanitizedPassword) {
+		p := &utils.PasswordValidatorImpl{}
+		sanitizedPassword := p.SanitizePassword(updateReq.Password)
+		if !p.IsPasswordComplex(sanitizedPassword) {
 			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Password does not meet complexity requirements"})
 			return
 		}

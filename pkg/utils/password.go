@@ -11,6 +11,12 @@ var (
 	maxPasswordLength = 64
 )
 
+type PasswordValidator interface {
+	ValidatePassword(password string) PasswordValidationResult
+	SanitizePassword(password string) string
+	IsPasswordComplex(password string) bool
+}
+
 // PasswordValidationResult provides detailed feedback about password strength
 type PasswordValidationResult struct {
 	IsValid       bool
@@ -18,8 +24,10 @@ type PasswordValidationResult struct {
 	StrengthScore int
 }
 
+type PasswordValidatorImpl struct{}
+
 // ValidatePassword provides comprehensive password validation
-func ValidatePassword(password string) PasswordValidationResult {
+func (p *PasswordValidatorImpl) ValidatePassword(password string) PasswordValidationResult {
 	result := PasswordValidationResult{
 		IsValid:       true,
 		Errors:        []string{},
@@ -93,13 +101,15 @@ func ValidatePassword(password string) PasswordValidationResult {
 }
 
 // SanitizePassword removes potentially dangerous characters
-func SanitizePassword(password string) string {
+func (p *PasswordValidatorImpl) SanitizePassword(password string) string {
 	reg := regexp.MustCompile(`[^a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+`)
 	return reg.ReplaceAllString(password, "")
 }
 
 // IsPasswordComplex is a quick check for password complexity
-func IsPasswordComplex(password string) bool {
-	result := ValidatePassword(password)
+func (p *PasswordValidatorImpl) IsPasswordComplex(password string) bool {
+	result := p.ValidatePassword(password)
 	return result.IsValid
 }
+
+var _ PasswordValidator = &PasswordValidatorImpl{}

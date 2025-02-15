@@ -5,12 +5,19 @@ import (
 	"github.com/yourusername/user-management-api/internal/repository"
 )
 
-type UserCleanupService struct {
+type UserCleanupServiceImpl struct {
 	userRepo repository.UserRepository
 	log      zerolog.Logger
 }
 
-func (s *UserCleanupService) CleanupUsers() error {
+func NewUserCleanupService(userRepo repository.UserRepository, log zerolog.Logger) *UserCleanupServiceImpl {
+	return &UserCleanupServiceImpl{
+		userRepo: userRepo,
+		log:      log.With().Str("service", "UserCleanupService").Logger(),
+	}
+}
+
+func (s *UserCleanupServiceImpl) CleanupUsers() error {
 	// Lock users with repeated security violations
 	err := s.lockSecurityViolationUsers()
 	if err != nil {
@@ -32,21 +39,21 @@ func (s *UserCleanupService) CleanupUsers() error {
 	return nil
 }
 
-func (s *UserCleanupService) lockSecurityViolationUsers() error {
+func (s *UserCleanupServiceImpl) lockSecurityViolationUsers() error {
 	if err := s.userRepo.LockSecurityViolationUsers(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *UserCleanupService) markInactiveUsers() error {
+func (s *UserCleanupServiceImpl) markInactiveUsers() error {
 	if err := s.userRepo.MarkInactiveUsers(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *UserCleanupService) hardDeletePermanentlyInactiveUsers() error {
+func (s *UserCleanupServiceImpl) hardDeletePermanentlyInactiveUsers() error {
 	if err := s.userRepo.HardDeletePermanentlyInactiveUsers(); err != nil {
 		return err
 	}

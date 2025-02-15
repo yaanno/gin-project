@@ -1,4 +1,4 @@
-package handlers
+package handlers_test
 
 import (
 	"bytes"
@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/yourusername/user-management-api/internal/database/sqlite"
+	"github.com/yourusername/user-management-api/internal/handlers"
 	"github.com/yourusername/user-management-api/internal/repository"
 	"github.com/yourusername/user-management-api/internal/services"
 	"github.com/yourusername/user-management-api/pkg/authentication"
@@ -25,7 +26,7 @@ var loginAttemptRepo = repository.NewLoginAttemptRepository(db, zerolog.Logger{}
 var tokenManager = token.NewTokenManager("secret_key", "refresh_secret_key")
 var authManager = authentication.NewAuthenticationManager(repo, tokenManager, loginAttemptRepo, zerolog.Logger{})
 var authService = services.NewAuthService(tokenManager, authManager, repo, zerolog.Logger{})
-var authHandler = NewAuthHandler(authService, zerolog.Logger{})
+var authHandler = handlers.NewAuthHandler(authService, zerolog.Logger{})
 
 func setupTestRouter() *gin.Engine {
 	router := gin.Default()

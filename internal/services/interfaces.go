@@ -26,5 +26,10 @@ type AuthService interface {
 	LogoutUser(ctx context.Context, token string) error
 }
 
+type UserCleanupService interface {
+	CleanupUsers() error
+}
+
 var _ AuthService = (*AuthServiceImpl)(nil)
 var _ UserService = (*UserServiceImpl)(nil)
+var _ UserCleanupService = (*UserCleanupServiceImpl)(nil)

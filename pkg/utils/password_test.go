@@ -1,9 +1,10 @@
-package utils
+package utils_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/yourusername/user-management-api/pkg/utils"
 )
 
 func TestValidatePassword(t *testing.T) {
@@ -24,7 +25,8 @@ func TestValidatePassword(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := ValidatePassword(tc.password)
+			p := &utils.PasswordValidatorImpl{}
+			result := p.ValidatePassword(tc.password)
 			assert.Equal(t, tc.isValid, result.IsValid)
 			assert.GreaterOrEqual(t, result.StrengthScore, tc.minScore)
 		})
