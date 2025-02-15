@@ -102,23 +102,25 @@ func main() {
 	router.Use(middleware.RateLimitMiddleware(cfg.RateLimitLimit, cfg.RateLimitBurst, cfg.RateLimitDuration))
 
 	// Api routes
-	// Authentication routes
-	authGroup := router.Group("/auth")
+	v1Group := router.Group("/api/v1")
 	{
-		authGroup.POST("/register", authHandler.RegisterUser)
-		authGroup.POST("/login", authHandler.LoginUser)
-		authGroup.POST("/refresh", authHandler.RefreshTokens)
-	}
-
-	// User routes (protected)
-	userGroup := router.Group("/users")
-	// Add JWT middleware
-	userGroup.Use(middleware.JWTAuthMiddleware(tokenManager, log))
-	{
-		userGroup.GET("/", userHandler.GetAllUsers)
-		userGroup.GET("/:id", userHandler.GetUserByID)
-		userGroup.PUT("/:id", userHandler.UpdateUser)
-		userGroup.DELETE("/:id", userHandler.DeleteUser)
+		// Authentication routes
+		authGroup := v1Group.Group("/auth")
+		{
+			authGroup.POST("/register", authHandler.RegisterUser)
+			authGroup.POST("/login", authHandler.LoginUser)
+			authGroup.POST("/refresh", authHandler.RefreshTokens)
+		}
+		// User routes (protected)
+		userGroup := v1Group.Group("/users")
+		// Add JWT middleware
+		userGroup.Use(middleware.JWTAuthMiddleware(tokenManager, log))
+		{
+			userGroup.GET("/", userHandler.GetAllUsers)
+			userGroup.GET("/:id", userHandler.GetUserByID)
+			userGroup.PUT("/:id", userHandler.UpdateUser)
+			userGroup.DELETE("/:id", userHandler.DeleteUser)
+		}
 	}
 
 	// Get port from environment or use default

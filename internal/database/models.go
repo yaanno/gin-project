@@ -6,14 +6,27 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type UserStatus string
+
+const (
+	UserStatusActive   UserStatus = "active"
+	UserStatusLocked   UserStatus = "locked"
+	UserStatusInactive UserStatus = "inactive"
+	UserStatusDeleted  UserStatus = "deleted"
+)
+
 type User struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
-	Username  string    `json:"username" gorm:"unique;not null"`
-	Email     string    `json:"email" gorm:"unique;not null"`
-	Password  string    `json:"-" gorm:"not null"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	DeletedAt time.Time `json:"deleted_at"`
+	ID             uint       `json:"id" gorm:"primaryKey"`
+	Username       string     `json:"username" gorm:"unique;not null"`
+	Email          string     `json:"email" gorm:"unique;not null"`
+	Password       string     `json:"-" gorm:"not null"`
+	Status         UserStatus `json:"status" gorm:"not null"`
+	LastActivityAt time.Time  `json:"last_activity_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	DeletedAt      time.Time  `json:"deleted_at,omitempty"`
+	LockedUntil    time.Time  `json:"locked_until,omitempty"`
+	LockReason     string     `json:"lock_reason,omitempty"`
 }
 
 type TokenPair struct {

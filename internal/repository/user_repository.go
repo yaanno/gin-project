@@ -1,8 +1,10 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
@@ -20,6 +22,13 @@ type UserRepository interface {
 	UpdateUser(user *database.User) error
 	DeleteUser(userID uint) error
 	GetAllUsers() ([]database.User, error)
+	LockUser(userID uint, reason string, duration time.Duration) error
+	UnlockUser(userID uint) error
+	MarkUserInactive(userID uint) error
+	HardDeleteUser(userID uint) error
+	HardDeletePermanentlyInactiveUsers() error
+	LockSecurityViolationUsers() error
+	MarkInactiveUsers() error
 }
 
 type UserRepositoryImpl struct {
@@ -123,11 +132,19 @@ func (r *UserRepositoryImpl) UpdateUser(user *database.User) error {
 }
 
 func (r *UserRepositoryImpl) DeleteUser(userID uint) error {
-	query := `DELETE FROM users WHERE id = $1`
-	_, err := r.db.ExecuteQuery(query, userID)
+	query := `
+        UPDATE users 
+        SET deleted_at = datetime('now')
+        WHERE id = $1 AND deleted_at IS NULL
+    `
+	result, err := r.db.ExecuteQuery(query, userID)
 	if err != nil {
 		r.log.Error().Err(err).Msg("Failed to delete user")
 		return err
+	}
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return ErrUserNotFound
 	}
 	return nil
 }
@@ -167,6 +184,136 @@ func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {
 	}
 
 	return users, nil
+}
+
+func (r *UserRepositoryImpl) LockUser(userID uint, reason string, duration time.Duration) error {
+	lockedUntil := time.Now().Add(duration)
+	query := `
+		UPDATE users 
+		SET 
+			status = 'locked', 
+			lock_reason = $2, 
+			locked_until = $3
+		WHERE id = $1 AND status != 'deleted'
+	`
+	result, err := r.db.ExecuteQuery(query, userID, reason, lockedUntil)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *UserRepositoryImpl) UnlockUser(userID uint) error {
+	query := `
+		UPDATE users 
+		SET 
+			status = 'active', 
+			lock_reason = NULL, 
+			locked_until = NULL
+		WHERE id = $1
+	`
+	_, err := r.db.ExecuteQuery(query, userID)
+	return err
+}
+
+func (r *UserRepositoryImpl) MarkUserInactive(userID uint) error {
+	query := `
+		UPDATE users 
+		SET 
+			status = 'inactive', 
+			deleted_at = datetime('now')
+		WHERE id = $1 AND status != 'deleted'
+	`
+	_, err := r.db.ExecuteQuery(query, userID)
+	return err
+}
+
+func (r *UserRepositoryImpl) HardDeleteUser(userID uint) error {
+	// Optional: Implement data archiving before hard delete
+	archiveQuery := `
+		INSERT INTO user_archive 
+		SELECT * FROM users WHERE id = $1
+	`
+
+	deleteQuery := `DELETE FROM users WHERE id = $1 AND status = 'deleted'`
+
+	tx, err := r.db.BeginTx(context.Background())
+	if err != nil {
+		return err
+	}
+
+	// Archive user data
+	_, err = tx.Exec(archiveQuery, userID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Hard delete
+	result, err := tx.Exec(deleteQuery, userID)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		tx.Rollback()
+		return ErrUserNotFound
+	}
+
+	return tx.Commit()
+}
+
+func (r *UserRepositoryImpl) HardDeletePermanentlyInactiveUsers() error {
+	query := `
+		DELETE FROM users 
+		WHERE 
+			status = 'inactive' AND 
+			deleted_at < datetime('now', '-365 days')
+	`
+	_, err := r.db.ExecuteQuery(query)
+	return err
+}
+
+func (r *UserRepositoryImpl) MarkInactiveUsers() error {
+	query := `
+		UPDATE users 
+		SET 
+			status = 'inactive', 
+			deleted_at = datetime('now')
+		WHERE 
+			status = 'active' AND 
+			last_activity_at < datetime('now', '-90 days')
+	`
+	_, err := r.db.ExecuteQuery(query)
+	return err
+}
+
+func (r *UserRepositoryImpl) LockSecurityViolationUsers() error {
+	query := `
+		UPDATE users 
+		SET 
+			status = 'locked', 
+			lock_reason = 'Multiple security violations',
+			locked_until = datetime('now', '+30 days')
+		WHERE 
+			id IN (
+				SELECT user_id 
+				FROM login_attempts 
+				WHERE 
+					attempts > 10 AND 
+					success = false AND 
+					last_attempt > datetime('now', '-30 days')
+			)
+	`
+	_, err := r.db.ExecuteQuery(query)
+	return err
 }
 
 var _ UserRepository = (*UserRepositoryImpl)(nil)

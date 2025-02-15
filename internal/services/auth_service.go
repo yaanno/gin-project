@@ -4,6 +4,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
@@ -55,6 +56,7 @@ func (s *AuthServiceImpl) RefreshTokens(ctx context.Context, userID uint, userna
 	}, nil
 }
 
+// TODO: CURRENTLY UNUSED, IMPLEMENT LATER
 func (s *AuthServiceImpl) ValidateAccessToken(ctx context.Context, tokenString string) (*database.User, error) {
 	claims, err := s.tokenManager.ValidateToken(tokenString, "access")
 	if err != nil {
@@ -109,6 +111,16 @@ func (s *AuthServiceImpl) LoginUser(ctx context.Context, username, password, ipA
 			s.logger.Error().Err(err).Msg("Failed to record login attempt") // Log this, but don't stop the flow
 		}
 		return &database.TokenPair{}, err
+	}
+
+	// Check if user is locked
+	switch user.Status {
+	case database.UserStatusLocked:
+		if user.LockedUntil.After(time.Now()) {
+			return &database.TokenPair{}, fmt.Errorf("user is locked until %s, reason: %s", user.LockedUntil.Format(time.RFC3339), user.LockReason)
+		}
+	case database.UserStatusInactive, database.UserStatusDeleted:
+		return &database.TokenPair{}, fmt.Errorf("user is not active")
 	}
 
 	// Check password

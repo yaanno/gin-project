@@ -73,21 +73,6 @@ func NewSQLiteDatabase(config SQLiteConfig) (*SQLiteDatabase, error) {
 // RunSQLiteMigrations sets up the necessary tables
 func (s *SQLiteDatabase) RunSQLiteMigrations() error {
 	// Create users table
-	createUserTableQuery := `
-		CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			username TEXT UNIQUE NOT NULL,
-			email TEXT UNIQUE NOT NULL,
-			password TEXT NOT NULL,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			deleted_at DATETIME DEFAULT NULL
-		);
-
-		-- Create unique indexes for faster lookups
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
-	`
 
 	_, err := s.db.Exec(createUserTableQuery)
 	if err != nil {
@@ -95,18 +80,6 @@ func (s *SQLiteDatabase) RunSQLiteMigrations() error {
 		return err
 	}
 
-	createLoginAttemptTableQuery := `
-		CREATE TABLE login_attempts (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			username VARCHAR(255) NOT NULL,
-			ip_address VARCHAR(45) NOT NULL,   
-			attempts INTEGER NOT NULL DEFAULT 0,
-			last_attempt DATETIME,
-			success BOOLEAN                     
-		);
-
-		CREATE UNIQUE INDEX idx_username_ip ON login_attempts (username, ip_address); 
-	`
 	_, err = s.db.Exec(createLoginAttemptTableQuery)
 	if err != nil {
 		s.db.Close()
@@ -146,38 +119,11 @@ func CreateInMemoryTestDB() (*SQLiteDatabase, error) {
 	if err != nil {
 		return &SQLiteDatabase{}, fmt.Errorf("error creating in-memory test database: %v", err)
 	}
-
-	// Run migrations
-	createUserTableQuery := `
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			username TEXT UNIQUE NOT NULL,
-			email TEXT UNIQUE NOT NULL,
-			password TEXT NOT NULL,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			deleted_at DATETIME DEFAULT NULL
-		);
-	`
-
 	_, err = db.Exec(createUserTableQuery)
 	if err != nil {
 		db.Close()
 		return &SQLiteDatabase{}, fmt.Errorf("error creating users table in test database: %v", err)
 	}
-
-	createLoginAttemptTableQuery := `
-		CREATE TABLE login_attempts (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		username VARCHAR(255) NOT NULL,
-		ip_address VARCHAR(45) NOT NULL,   
-		attempts INTEGER NOT NULL DEFAULT 0,
-		last_attempt DATETIME,
-		success BOOLEAN                     
-	);
-
-	CREATE UNIQUE INDEX idx_username_ip ON login_attempts (username, ip_address); 
-	`
 	_, err = db.Exec(createLoginAttemptTableQuery)
 	if err != nil {
 		db.Close()
@@ -193,3 +139,37 @@ func (s *SQLiteDatabase) Close() {
 		s.db.Close()
 	}
 }
+
+const createUserTableQuery = `
+CREATE TABLE IF NOT EXISTS users (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	username TEXT UNIQUE NOT NULL,
+	email TEXT UNIQUE NOT NULL,
+	password TEXT NOT NULL,
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	deleted_at DATETIME DEFAULT NULL,
+	locked_until DATETIME DEFAULT NULL,
+	lock_reason TEXT DEFAULT NULL,
+	status TEXT DEFAULT 'active'
+);
+
+-- Create unique indexes for faster lookups
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX idx_user_status ON users(status);
+CREATE INDEX idx_user_last_activity ON users(last_activity_at);
+`
+
+const createLoginAttemptTableQuery = `
+CREATE TABLE IF NOT EXISTS login_attempts (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	username VARCHAR(255) NOT NULL,
+	ip_address VARCHAR(45) NOT NULL,   
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_attempt DATETIME,
+	success BOOLEAN                     
+);
+
+CREATE UNIQUE INDEX idx_username_ip ON login_attempts (username, ip_address); 
+`
