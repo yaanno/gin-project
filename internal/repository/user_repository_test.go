@@ -32,9 +32,7 @@ func AfterEach() {
 
 func TestSQLiteUserRepository(t *testing.T) {
 	t.Cleanup(AfterEach)
-	// db := setupSQLiteTestDB(t)
 
-	// Implement similar tests as in PostgreSQL repository test
 	t.Run("Create User", func(t *testing.T) {
 		user := &database.User{
 			Username: "testuser",
@@ -44,12 +42,9 @@ func TestSQLiteUserRepository(t *testing.T) {
 		result := db.Create(user)
 		require.NoError(t, result.Error)
 
-		// Check that a row was inserted
 		rowsAffected := result.RowsAffected
 		assert.Equal(t, int64(1), rowsAffected)
 	})
-
-	// Add more tests for other repository methods
 }
 
 func TestCreateUser(t *testing.T) {
