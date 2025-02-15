@@ -11,12 +11,15 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/crypto v0.24.0
+	gorm.io/driver/sqlite v1.5.7
 )
 
 require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 )
@@ -55,4 +58,5 @@ require (
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gorm.io/gorm v1.25.12
 )

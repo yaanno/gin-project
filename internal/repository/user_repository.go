@@ -1,14 +1,12 @@
 package repository
 
 import (
-	"context"
-	"database/sql"
 	"errors"
 	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
-	"github.com/yourusername/user-management-api/internal/database/sqlite"
+	"gorm.io/gorm"
 )
 
 var (
@@ -32,11 +30,11 @@ type UserRepository interface {
 }
 
 type UserRepositoryImpl struct {
-	db  *sqlite.SQLiteDatabase
+	db  *gorm.DB
 	log zerolog.Logger
 }
 
-func NewUserRepository(db *sqlite.SQLiteDatabase, log zerolog.Logger) *UserRepositoryImpl {
+func NewUserRepository(db *gorm.DB, log zerolog.Logger) *UserRepositoryImpl {
 	return &UserRepositoryImpl{
 		db:  db,
 		log: log.With().Str("repository", "UserRepository").Logger(),
@@ -44,45 +42,25 @@ func NewUserRepository(db *sqlite.SQLiteDatabase, log zerolog.Logger) *UserRepos
 }
 
 func (r *UserRepositoryImpl) CreateUser(user *database.User) error {
-	query := `
-		INSERT INTO users (username, email, password, created_at, updated_at)
-		VALUES ($1, $2, $3, datetime('now'), datetime('now'))
-		RETURNING id
-	`
-	err := r.db.QueryRow(query, user.Username, user.Email, user.Password).Scan(&user.ID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			r.log.Error().Err(err).Msg("User not found")
-			return ErrUserNotFound
-		}
-		r.log.Error().Err(err).Msg("Failed to create user")
-		return err
+	userID := r.db.Create(user)
+	if userID == nil {
+		r.log.Error().Msg("Failed to create user")
+		return ErrUserNotFound
 	}
 	return nil
 }
 
 func (r *UserRepositoryImpl) FindUserByUsername(username string) (*database.User, error) {
 	user := &database.User{}
-	query := `
-		SELECT id, username, email, password 
-		FROM users 
-		WHERE username = $1
-	`
-	err := r.db.QueryRow(query, username).Scan(
-		&user.ID,
-		&user.Username,
-		&user.Email,
-		&user.Password,
-	)
-
-	if err == sql.ErrNoRows {
-		r.log.Error().Err(err).Msg("User not found")
+	result := r.db.First(user, "username = ?", username)
+	if result.Error == gorm.ErrRecordNotFound {
+		r.log.Error().Err(result.Error).Msg("User not found")
 		return &database.User{}, ErrUserNotFound
 	}
 
-	if err != nil {
-		r.log.Error().Err(err).Msg("Failed to find user")
-		return &database.User{}, err
+	if result.Error != nil {
+		r.log.Error().Err(result.Error).Msg("Failed to find user")
+		return &database.User{}, result.Error
 	}
 
 	return user, nil
@@ -90,230 +68,182 @@ func (r *UserRepositoryImpl) FindUserByUsername(username string) (*database.User
 
 func (r *UserRepositoryImpl) FindUserByID(userID uint) (*database.User, error) {
 	user := &database.User{}
-	query := `
-		SELECT id, username, email, password, created_at, updated_at
-		FROM users 
-		WHERE id = $1
-	`
-	err := r.db.QueryRow(query, userID).Scan(
-		&user.ID,
-		&user.Username,
-		&user.Email,
-		&user.Password,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
+	result := r.db.First(user, "id = ?", userID)
 
-	if err == sql.ErrNoRows {
-		r.log.Error().Err(err).Msg("User not found")
+	if result.Error == gorm.ErrRecordNotFound {
+		r.log.Error().Err(result.Error).Msg("User not found")
 		return &database.User{}, ErrUserNotFound
 	}
 
-	if err != nil {
-		r.log.Error().Err(err).Msg("Failed to find user")
-		return &database.User{}, err
+	if result.Error != nil {
+		r.log.Error().Err(result.Error).Msg("Failed to find user")
+		return &database.User{}, result.Error
 	}
 
 	return user, nil
 }
 
 func (r *UserRepositoryImpl) UpdateUser(user *database.User) error {
-	query := `
-		UPDATE users 
-		SET email = $1, password = $2, updated_at = datetime('now')
-		WHERE id = $3
-	`
-	_, err := r.db.ExecuteQuery(query, user.Email, user.Password, user.ID)
-	if err != nil {
-		r.log.Error().Err(err).Msg("Failed to update user")
-		return err
+	result := r.db.Updates(user)
+
+	if result.Error != nil {
+		r.log.Error().Err(result.Error).Msg("Failed to update user")
+		return result.Error
 	}
 	return nil
 }
 
 func (r *UserRepositoryImpl) DeleteUser(userID uint) error {
-	query := `
-        UPDATE users 
-        SET deleted_at = datetime('now')
-        WHERE id = $1 AND deleted_at IS NULL
-    `
-	result, err := r.db.ExecuteQuery(query, userID)
-	if err != nil {
-		r.log.Error().Err(err).Msg("Failed to delete user")
-		return err
+	result := r.db.Updates(&database.User{
+		Status:    database.UserStatusDeleted,
+		DeletedAt: gorm.DeletedAt{Valid: true},
+	})
+	if result.Error != nil {
+		r.log.Error().Err(result.Error).Msg("Failed to delete user")
+		return result.Error
 	}
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
+	if result.RowsAffected == 0 {
 		return ErrUserNotFound
 	}
 	return nil
 }
 
 func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {
-	query := `
-		SELECT id, username, email, created_at, updated_at 
-		FROM users 
-		ORDER BY created_at DESC
-	`
-	rows, err := r.db.Query(query)
-	if err != nil {
-		r.log.Error().Err(err).Msg("Failed to get users")
-		return []database.User{}, err
-	}
-	defer rows.Close()
-
 	var users []database.User
-	for rows.Next() {
-		var user database.User
-		err := rows.Scan(
-			&user.ID,
-			&user.Username,
-			&user.Email,
-			&user.CreatedAt,
-			&user.UpdatedAt,
-		)
-		if err != nil {
-			r.log.Error().Err(err).Msg("Failed to get users")
-			return []database.User{}, err
-		}
-		users = append(users, user)
+	result := r.db.Find(&users)
+	if result.Error != nil {
+		r.log.Error().Err(result.Error).Msg("Failed to get users")
+		return []database.User{}, result.Error
 	}
-
-	if err := rows.Err(); err != nil {
-		return []database.User{}, err
-	}
-
 	return users, nil
 }
 
 func (r *UserRepositoryImpl) LockUser(userID uint, reason string, duration time.Duration) error {
 	lockedUntil := time.Now().Add(duration)
-	query := `
-		UPDATE users 
-		SET 
-			status = 'locked', 
-			lock_reason = $2, 
-			locked_until = $3
-		WHERE id = $1 AND status != 'deleted'
-	`
-	result, err := r.db.ExecuteQuery(query, userID, reason, lockedUntil)
-	if err != nil {
-		return err
-	}
-
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		return ErrUserNotFound
+	result := r.db.Updates(&database.User{
+		ID:          userID,
+		Status:      database.UserStatusLocked,
+		LockReason:  reason,
+		LockedUntil: lockedUntil,
+	})
+	if result.Error != nil {
+		r.log.Error().Err(result.Error).Msg("Failed to lock user")
+		return result.Error
 	}
 	return nil
 }
 
 func (r *UserRepositoryImpl) UnlockUser(userID uint) error {
-	query := `
-		UPDATE users 
-		SET 
-			status = 'active', 
-			lock_reason = NULL, 
-			locked_until = NULL
-		WHERE id = $1
-	`
-	_, err := r.db.ExecuteQuery(query, userID)
-	return err
+	result := r.db.Updates(&database.User{
+		ID:         userID,
+		Status:     database.UserStatusActive,
+		LockReason: "",
+	})
+	if result.Error != nil {
+		r.log.Error().Err(result.Error).Msg("Failed to unlock user")
+		return result.Error
+	}
+	return nil
 }
 
 func (r *UserRepositoryImpl) MarkUserInactive(userID uint) error {
-	query := `
-		UPDATE users 
-		SET 
-			status = 'inactive', 
-			deleted_at = datetime('now')
-		WHERE id = $1 AND status != 'deleted'
-	`
-	_, err := r.db.ExecuteQuery(query, userID)
-	return err
+	r.log.Info().Uint("user_id", userID).Msg("Marking user inactive")
+	result := r.db.Updates(&database.User{
+		ID:     userID,
+		Status: database.UserStatusInactive,
+	})
+	if result.Error != nil {
+		r.log.Error().Err(result.Error).Msg("Failed to mark user inactive")
+		return result.Error
+	}
+	r.log.Info().Uint("user_id", userID).Msg("User marked inactive")
+	return nil
 }
 
 func (r *UserRepositoryImpl) HardDeleteUser(userID uint) error {
-	// Optional: Implement data archiving before hard delete
-	archiveQuery := `
-		INSERT INTO user_archive 
-		SELECT * FROM users WHERE id = $1
-	`
-
-	deleteQuery := `DELETE FROM users WHERE id = $1 AND status = 'deleted'`
-
-	tx, err := r.db.BeginTx(context.Background())
-	if err != nil {
-		return err
+	result := r.db.Delete(&database.User{}, "id = ?", userID)
+	if result.Error != nil {
+		r.log.Error().Err(result.Error).Msg("Failed to hard delete user")
+		return result.Error
 	}
+	return nil
+}
 
-	// Archive user data
-	_, err = tx.Exec(archiveQuery, userID)
-	if err != nil {
-		tx.Rollback()
-		return err
+func (r *UserRepositoryImpl) HardDeleteUserMarkedForDeletion(userID uint) error {
+	result := r.db.Unscoped().Where("id = ? AND status = ?", userID, database.UserStatusDeleted).Delete(&database.User{})
+	if result.Error != nil {
+		return result.Error
 	}
-
-	// Hard delete
-	result, err := tx.Exec(deleteQuery, userID)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		tx.Rollback()
+	if result.RowsAffected == 0 {
 		return ErrUserNotFound
 	}
-
-	return tx.Commit()
+	return nil
 }
 
 func (r *UserRepositoryImpl) HardDeletePermanentlyInactiveUsers() error {
-	query := `
-		DELETE FROM users 
-		WHERE 
-			status = 'inactive' AND 
-			deleted_at < datetime('now', '-365 days')
-	`
-	_, err := r.db.ExecuteQuery(query)
-	return err
+	result := r.db.Unscoped().Where(
+		"status = ? AND deleted_at < ?",
+		database.UserStatusInactive,
+		time.Now().AddDate(0, 0, -365),
+	).Delete(&database.User{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	r.log.Info().
+		Int64("deleted_users", result.RowsAffected).
+		Msg("Deleted permanently inactive users")
+
+	return nil
 }
 
 func (r *UserRepositoryImpl) MarkInactiveUsers() error {
-	query := `
-		UPDATE users 
-		SET 
-			status = 'inactive', 
-			deleted_at = datetime('now')
-		WHERE 
-			status = 'active' AND 
-			last_activity_at < datetime('now', '-90 days')
-	`
-	_, err := r.db.ExecuteQuery(query)
-	return err
-}
+	result := r.db.Model(&database.User{}).
+		Where("status = ? AND last_activity_at < ?",
+			database.UserStatusActive,
+			time.Now().AddDate(0, 0, -90),
+		).
+		Updates(map[string]interface{}{
+			"status":     database.UserStatusInactive,
+			"deleted_at": time.Now(),
+		})
 
+	if result.Error != nil {
+		return result.Error
+	}
+
+	r.log.Info().
+		Int64("marked_inactive", result.RowsAffected).
+		Msg("Marked inactive users")
+
+	return nil
+}
 func (r *UserRepositoryImpl) LockSecurityViolationUsers() error {
-	query := `
-		UPDATE users 
-		SET 
-			status = 'locked', 
-			lock_reason = 'Multiple security violations',
-			locked_until = datetime('now', '+30 days')
-		WHERE 
-			id IN (
-				SELECT user_id 
-				FROM login_attempts 
-				WHERE 
-					attempts > 10 AND 
-					success = false AND 
-					last_attempt > datetime('now', '-30 days')
-			)
-	`
-	_, err := r.db.ExecuteQuery(query)
-	return err
+	subQuery := r.db.Table("login_attempts").
+		Select("DISTINCT username").
+		Where("success = ? AND last_attempt > ?",
+			false,
+			time.Now().AddDate(0, 0, -30),
+		)
+
+	result := r.db.Model(&database.User{}).
+		Where("username IN (?)", subQuery).
+		Updates(map[string]interface{}{
+			"status":       database.UserStatusLocked,
+			"locked_until": time.Now().Add(24 * time.Hour),
+			"lock_reason":  "Multiple failed login attempts",
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	r.log.Info().
+		Int64("locked_users", result.RowsAffected).
+		Msg("Locked users with security violations")
+
+	return nil
 }
 
 var _ UserRepository = (*UserRepositoryImpl)(nil)

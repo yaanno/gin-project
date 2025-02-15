@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/yourusername/user-management-api/internal/config"
-	"github.com/yourusername/user-management-api/internal/database/sqlite"
+	"github.com/yourusername/user-management-api/internal/database/sqlite-gorm"
 	"github.com/yourusername/user-management-api/internal/handlers"
 	"github.com/yourusername/user-management-api/internal/middleware"
 	"github.com/yourusername/user-management-api/internal/repository"
@@ -45,7 +45,7 @@ func main() {
 		log.Warn().Err(err).Msg("Error loading .env file")
 	}
 
-	sqliteConfig := sqlite.SQLiteConfig{
+	databaseConfig := sqlite.DatabaseConfig{
 		Path:            "./data/users.db",
 		InMemory:        true,
 		MaxOpenConns:    10,
@@ -61,15 +61,10 @@ func main() {
 	}
 
 	// Initialize database connection
-	db, err := sqlite.NewSQLiteDatabase(sqliteConfig)
+	// db, err := sqlite.NewSQLiteDatabase(sqliteConfig)
+	db, err := sqlite.InitializeDatabase(databaseConfig)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to connect to database")
-	}
-	defer db.Close()
-
-	// Run migrations
-	if err := db.RunSQLiteMigrations(); err != nil {
-		log.Fatal().Err(err).Msg("Failed to run migrations")
 	}
 
 	// inject to repository
