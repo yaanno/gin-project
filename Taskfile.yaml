@@ -1,0 +1,122 @@
+version: '3'
+
+vars:
+  PROJECT_NAME: userapi
+  GO_VERSION: 1.21
+  BUILD_DIR: build
+  COVERAGE_DIR: coverage
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list-all
+
+  clean:
+    desc: Clean build artifacts and temporary files
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - rm -rf {{.COVERAGE_DIR}}
+      - go clean -cache
+      - go clean -testcache
+
+  lint:
+    desc: Run linters and code quality checks
+    cmds:
+      # - golangci-lint run ./...
+      - go vet ./...
+      - staticcheck ./...
+      
+  profile:
+    desc: Run comprehensive performance and memory profiling
+    cmds:
+      - mkdir -p {{.COVERAGE_DIR}}/profiles
+      - go test -race -bench=. -memprofile={{.COVERAGE_DIR}}/profiles/mem.prof -cpuprofile={{.COVERAGE_DIR}}/profiles/cpu.prof ./...
+      - go tool pprof -http=:8080 {{.COVERAGE_DIR}}/profiles/mem.prof
+      - go tool pprof -http=:8081 {{.COVERAGE_DIR}}/profiles/cpu.prof
+
+  race:
+    desc: Detect race conditions in the application
+    cmds:
+      - go test -race ./...
+      - go run -race ./cmd/server/main.go
+
+  leak:
+    desc: Detect memory leaks using memory profiling and analysis
+    cmds:
+      - mkdir -p {{.COVERAGE_DIR}}/leaks
+      - go run github.com/pkg/profile@latest -memprofile {{.COVERAGE_DIR}}/leaks/memprofile.out ./cmd/server/main.go
+      - go tool pprof -text {{.COVERAGE_DIR}}/leaks/memprofile.out
+      - go tool pprof -top {{.COVERAGE_DIR}}/leaks/memprofile.out
+
+  diagnose:
+    desc: Comprehensive system diagnostics (race, leaks, performance)
+    cmds:
+      - task: race
+      - task: leak
+      - task: profile
+
+  test:
+    desc: Run all test suites
+    deps: [test:unit, test:integration, test:performance]
+
+  test:unit:
+    desc: Run unit tests
+    cmds:
+      - mkdir -p {{.COVERAGE_DIR}}
+      - go test -v ./... -coverprofile={{.COVERAGE_DIR}}/unit-coverage.out
+      - go tool cover -html={{.COVERAGE_DIR}}/unit-coverage.out -o {{.COVERAGE_DIR}}/unit-coverage.html
+
+  test:integration:
+    desc: Run integration tests
+    cmds:
+      - mkdir -p {{.COVERAGE_DIR}}
+      - go test -v ./... -tags=integration -coverprofile={{.COVERAGE_DIR}}/integration-coverage.out
+      - go tool cover -html={{.COVERAGE_DIR}}/integration-coverage.out -o {{.COVERAGE_DIR}}/integration-coverage.html
+
+  test:performance:
+    desc: Run performance benchmarks
+    cmds:
+      - mkdir -p {{.COVERAGE_DIR}}
+      - go test -v -bench=. -benchmem ./... -coverprofile={{.COVERAGE_DIR}}/performance-coverage.out
+      - go tool cover -html={{.COVERAGE_DIR}}/performance-coverage.out -o {{.COVERAGE_DIR}}/performance-coverage.html
+
+  build:
+    desc: Build the project for the current platform
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - go build -o {{.BUILD_DIR}}/{{.PROJECT_NAME}} ./cmd/server/main.go
+
+  build:cross:
+    desc: Build the project for multiple platforms
+    cmds:
+      - mkdir -p {{.BUILD_DIR}}
+      - GOOS=darwin GOARCH=amd64 go build -o {{.BUILD_DIR}}/{{.PROJECT_NAME}}-darwin-amd64 ./cmd/server/main.go
+      - GOOS=linux GOARCH=amd64 go build -o {{.BUILD_DIR}}/{{.PROJECT_NAME}}-linux-amd64 ./cmd/server/main.go
+      - GOOS=windows GOARCH=amd64 go build -o {{.BUILD_DIR}}/{{.PROJECT_NAME}}-windows-amd64.exe ./cmd/server/main.go
+
+  run:
+    desc: Run the application
+    cmds:
+      - go run ./cmd/server/main.go
+
+  run:dev:
+    desc: Run the application in development mode with hot reload
+    cmds:
+      - go install github.com/cosmtrek/air@latest
+      - air
+
+  deps:
+    desc: Install project dependencies
+    cmds:
+      - go mod tidy
+      - go mod verify
+      - go mod download
+
+  ci:
+    desc: Run all checks and tests for CI pipeline
+    cmds:
+      - task: deps
+      - task: lint
+      - task: test
+      - task: build

@@ -3,6 +3,7 @@
 [project_name].exe
 *.exe
 *.bin
+build/
 
 # Dependency management (vendor directory - adjust if you commit vendor)
 vendor/
@@ -19,12 +20,16 @@ _test
 .idea/
 .vscode/
 *.iml
+
+# Sensitive files
 *.swp
 *.swo
 *.session
 *.DS_Store # macOS folder settings
+.DS_Store
 
 # Test coverage files
+coverage/
 coverage.out
 coverage.txt
 *.prof
