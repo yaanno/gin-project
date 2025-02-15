@@ -100,8 +100,8 @@ func main() {
 	// Add sanitization middleware
 	router.Use(middleware.SanitizationMiddleware())
 
-	// Add rate limit middleware
-	router.Use(middleware.RateLimitMiddleware(cfg.RateLimitLimit, cfg.RateLimitBurst, cfg.RateLimitDuration))
+	// Add ip based rate limit middleware
+	router.Use(middleware.IPRateLimitMiddleware(cfg.RateLimitLimit, cfg.RateLimitBurst, cfg.RateLimitDuration, log))
 
 	// Api routes
 	v1Group := router.Group("/api/v1")

@@ -34,7 +34,7 @@ coverage.txt
 *.temp
 
 # Documentation and generated files (if you generate documentation)
-docs/
+# docs/
 *.html
 
 # Log files (if applicable to your project)
