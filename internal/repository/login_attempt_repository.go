@@ -11,7 +11,7 @@ import (
 type LoginAttemptRepository interface {
 	IncrementLoginAttempts(username string, ipAddress string, success bool) error
 	ResetLoginAttempts(username string, ipAddress string) error
-	GetLoginAttempts(username string, ipAddress string) (int, error)
+	GetLoginAttempts(username string, ipAddress string) (int, time.Time, error)
 }
 
 type LoginAttemptRepositoryImpl struct {
@@ -50,16 +50,17 @@ func (r *LoginAttemptRepositoryImpl) ResetLoginAttempts(username string, ipAddre
 	return nil
 }
 
-func (r *LoginAttemptRepositoryImpl) GetLoginAttempts(username string, ipAddress string) (int, error) {
+func (r *LoginAttemptRepositoryImpl) GetLoginAttempts(username string, ipAddress string) (int, time.Time, error) {
 	var attempts int
-	err := r.db.QueryRow("SELECT attempts FROM login_attempts WHERE username = ? AND ip_address = ?", username, ipAddress).Scan(&attempts)
+	var lastAttempt time.Time
+	err := r.db.QueryRow("SELECT attempts, last_attempt FROM login_attempts WHERE username = ? AND ip_address = ?", username, ipAddress).Scan(&attempts, &lastAttempt)
 	if err == sql.ErrNoRows {
-		return 0, nil // No attempts recorded yet
+		return 0, time.Time{}, nil // No attempts recorded yet
 	} else if err != nil {
 		r.log.Error().Err(err).Msg("Failed to get login attempts")
-		return 0, err
+		return 0, time.Time{}, err
 	}
-	return attempts, nil
+	return attempts, lastAttempt, nil
 }
 
 var _ LoginAttemptRepository = (*LoginAttemptRepositoryImpl)(nil)

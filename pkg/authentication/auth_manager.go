@@ -121,7 +121,7 @@ func (am *AuthenticationManager) checkLoginAttempts(
 	userID uint,
 	ipAddress string,
 ) error {
-	attempts, err := am.loginAttemptRepo.GetLoginAttempts(username, ipAddress)
+	attempts, _, err := am.loginAttemptRepo.GetLoginAttempts(username, ipAddress)
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (am *AuthenticationManager) recordFailedLoginAttempt(
 	username string,
 	ipAddress string,
 ) {
-	attempts, _ := am.loginAttemptRepo.GetLoginAttempts(username, ipAddress)
+	attempts, _, _ := am.loginAttemptRepo.GetLoginAttempts(username, ipAddress)
 	possibleLockDuration := am.calculateLockDelay(attempts + 1)
 
 	am.logger.Warn().
