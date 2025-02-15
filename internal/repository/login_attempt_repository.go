@@ -11,7 +11,7 @@ import (
 type LoginAttemptRepository interface {
 	IncrementLoginAttempts(username string, ipAddress string, success bool) error
 	ResetLoginAttempts(username string, ipAddress string) error
-	GetLoginAttempts(username string, ipAddress string) (uint, time.Time, error)
+	GetLoginAttempts(username string, ipAddress string) (int, time.Time, error)
 }
 
 type LoginAttemptRepositoryImpl struct {
@@ -136,7 +136,7 @@ func (r *LoginAttemptRepositoryImpl) ResetLoginAttempts(username string, ipAddre
 	return nil
 }
 
-func (r *LoginAttemptRepositoryImpl) GetLoginAttempts(username string, ipAddress string) (uint, time.Time, error) {
+func (r *LoginAttemptRepositoryImpl) GetLoginAttempts(username string, ipAddress string) (int, time.Time, error) {
 	var loginAttempt database.LoginAttempt
 
 	result := r.db.Where(database.LoginAttempt{

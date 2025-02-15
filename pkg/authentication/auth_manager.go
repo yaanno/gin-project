@@ -16,15 +16,6 @@ import (
 
 const MAX_LOGIN_ATTEMPTS = 5
 
-type LoginAttempt struct {
-	Username    string
-	IPAddress   string
-	Attempts    int
-	LastAttempt time.Time
-	Locked      bool
-	LockUntil   time.Time
-}
-
 type AuthenticationManager interface {
 	CheckUserStatus(user *database.User) error
 	CalculateLockDelay(attempts int) time.Duration
@@ -191,7 +182,7 @@ func (am *AuthenticationManagerImpl) recordFailedLoginAttempt(
 	am.logger.Warn().
 		Str("username", username).
 		Str("ipAddress", ipAddress).
-		Int("attempts", attempts+1).
+		Int("attempts", int(attempts)+1).
 		Dur("next_attempt_delay", possibleLockDuration).
 		Msg("Progressive login delay applied")
 

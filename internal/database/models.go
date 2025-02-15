@@ -54,7 +54,7 @@ type LoginAttempt struct {
 	gorm.Model
 	Username    string    `gorm:"not null;index:idx_username_ip,unique" json:"username"`
 	IpAddress   string    `gorm:"not null;index:idx_username_ip,unique" json:"ip_address"`
-	Attempts    uint      `gorm:"not null;default:0" json:"attempts"`
+	Attempts    int       `gorm:"not null;default:0" json:"attempts"`
 	Success     bool      `gorm:"not null" json:"success"`
 	LastAttempt time.Time `gorm:"default:null" json:"last_attempt"`
 }

@@ -6,13 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/yourusername/user-management-api/internal/database/sqlite"
+	"github.com/yourusername/user-management-api/internal/database/sqlite-gorm"
 	"github.com/yourusername/user-management-api/internal/handlers"
 	"github.com/yourusername/user-management-api/internal/repository"
 	"github.com/yourusername/user-management-api/internal/services"
@@ -20,7 +21,13 @@ import (
 	"github.com/yourusername/user-management-api/pkg/token"
 )
 
-var db, _ = sqlite.CreateInMemoryTestDB()
+var db, _ = sqlite.InitializeDatabase(sqlite.DatabaseConfig{
+	Path:            "file::memory:?cache=shared",
+	MaxOpenConns:    10,
+	MaxIdleConns:    10,
+	ConnMaxLifetime: 10 * time.Second,
+	ConnMaxIdleTime: 10 * time.Second,
+})
 var repo = repository.NewUserRepository(db, zerolog.Logger{})
 var loginAttemptRepo = repository.NewLoginAttemptRepository(db, zerolog.Logger{})
 var tokenManager = token.NewTokenManager("secret_key", "refresh_secret_key")

@@ -42,10 +42,10 @@ func NewUserRepository(db *gorm.DB, log zerolog.Logger) *UserRepositoryImpl {
 }
 
 func (r *UserRepositoryImpl) CreateUser(user *database.User) error {
-	userID := r.db.Create(user)
-	if userID == nil {
-		r.log.Error().Msg("Failed to create user")
-		return ErrUserNotFound
+	result := r.db.Create(user)
+	if result.Error != nil {
+		r.log.Error().Err(result.Error).Msg("Failed to create user")
+		return result.Error
 	}
 	return nil
 }
@@ -94,7 +94,7 @@ func (r *UserRepositoryImpl) UpdateUser(user *database.User) error {
 }
 
 func (r *UserRepositoryImpl) DeleteUser(userID uint) error {
-	result := r.db.Updates(&database.User{
+	result := r.db.Where("id = ?", userID).Updates(&database.User{
 		Status:    database.UserStatusDeleted,
 		DeletedAt: gorm.DeletedAt{Valid: true},
 	})
