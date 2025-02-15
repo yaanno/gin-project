@@ -10,7 +10,7 @@ import (
 	"github.com/yourusername/user-management-api/pkg/token"
 )
 
-func AuthMiddleware(authManager *authentication.AuthenticationManager, logger zerolog.Logger) gin.HandlerFunc {
+func AuthMiddleware(authManager *authentication.AuthenticationManagerImpl, logger zerolog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Create a new logger with the request URI, method, and middleware name
 		logger = logger.With().Str("uri", c.Request.URL.Path).Str("method", c.Request.Method).Str("middleware", "JWTAuthMiddleware").Logger()

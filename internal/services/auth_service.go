@@ -16,11 +16,14 @@ import (
 type AuthServiceImpl struct {
 	logger                zerolog.Logger
 	repo                  repository.UserRepository
-	tokenManager          *token.TokenManager
-	authenticationManager *authentication.AuthenticationManager
+	tokenManager          token.TokenManager
+	authenticationManager *authentication.AuthenticationManagerImpl
 }
 
-func NewAuthService(tokenManager *token.TokenManager, authenticationManager *authentication.AuthenticationManager, repo repository.UserRepository, logger zerolog.Logger) *AuthServiceImpl {
+func NewAuthService(tokenManager token.TokenManager,
+	authenticationManager *authentication.AuthenticationManagerImpl,
+	repo repository.UserRepository,
+	logger zerolog.Logger) *AuthServiceImpl {
 	return &AuthServiceImpl{
 		repo:                  repo,
 		logger:                logger.With().Str("service", "AuthService").Logger(),

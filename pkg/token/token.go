@@ -39,16 +39,26 @@ func (e TokenExpiredError) Error() string     { return e.Message }
 func (e TokenBlacklistedError) Error() string { return e.Message }
 func (e InvalidTokenTypeError) Error() string { return e.Message }
 
+type TokenManager interface {
+	ValidateToken(tokenString string, tokenType TokenType) (*Claims, error)
+	InvalidateToken(tokenString string) error
+	GenerateToken(
+		userID uint,
+		username string,
+		tokenType TokenType,
+	) (string, error)
+}
+
 // TokenManager handles all token-related operations
-type TokenManager struct {
+type TokenManagerImpl struct {
 	secretKey        []byte
 	refreshSecretKey []byte
 	blacklist        *TokenBlacklist
 }
 
 // NewTokenManager creates a new TokenManager
-func NewTokenManager(secretKey, refreshSecretKey string) *TokenManager {
-	return &TokenManager{
+func NewTokenManager(secretKey, refreshSecretKey string) *TokenManagerImpl {
+	return &TokenManagerImpl{
 		secretKey:        []byte(secretKey),
 		refreshSecretKey: []byte(refreshSecretKey),
 		blacklist:        NewTokenBlacklist(),
@@ -56,7 +66,7 @@ func NewTokenManager(secretKey, refreshSecretKey string) *TokenManager {
 }
 
 // GenerateToken generates a new token with specified type
-func (tm *TokenManager) GenerateToken(
+func (tm *TokenManagerImpl) GenerateToken(
 	userID uint,
 	username string,
 	tokenType TokenType,
@@ -101,7 +111,7 @@ func (tm *TokenManager) GenerateToken(
 }
 
 // ValidateToken validates a token and returns its claims
-func (tm *TokenManager) ValidateToken(
+func (tm *TokenManagerImpl) ValidateToken(
 	tokenString string,
 	expectedTokenType TokenType,
 ) (*Claims, error) {
@@ -153,7 +163,7 @@ func (tm *TokenManager) ValidateToken(
 	return claims, nil
 }
 
-func (tm *TokenManager) InvalidateToken(tokenString string) error {
+func (tm *TokenManagerImpl) InvalidateToken(tokenString string) error {
 	if tm.blacklist.IsBlacklisted(tokenString) {
 		return TokenBlacklistedError{Message: "Token is blacklisted"}
 	}
@@ -204,3 +214,5 @@ func (tb *TokenBlacklist) Cleanup() {
 		}
 	}
 }
+
+var _ TokenManager = (*TokenManagerImpl)(nil)

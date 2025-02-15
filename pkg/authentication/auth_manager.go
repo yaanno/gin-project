@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"math/rand"
@@ -26,20 +25,31 @@ type LoginAttempt struct {
 	LockUntil   time.Time
 }
 
-type AuthenticationManager struct {
+type AuthenticationManager interface {
+	CheckUserStatus(user *database.User) error
+	CalculateLockDelay(attempts int) time.Duration
+	CheckLoginAttempts(
+		username string,
+		userID uint,
+		ipAddress string,
+	) error
+	ValidateToken(tokenString string, tokenType token.TokenType) (*token.Claims, error)
+}
+
+type AuthenticationManagerImpl struct {
 	userRepo         repository.UserRepository
-	tokenManager     *token.TokenManager
+	tokenManager     token.TokenManager
 	loginAttemptRepo repository.LoginAttemptRepository
 	logger           zerolog.Logger
 }
 
 func NewAuthenticationManager(
 	userRepo repository.UserRepository,
-	tokenManager *token.TokenManager,
+	tokenManager token.TokenManager,
 	loginAttemptRepo repository.LoginAttemptRepository,
 	logger zerolog.Logger,
-) *AuthenticationManager {
-	return &AuthenticationManager{
+) *AuthenticationManagerImpl {
+	return &AuthenticationManagerImpl{
 		userRepo:         userRepo,
 		tokenManager:     tokenManager,
 		loginAttemptRepo: loginAttemptRepo,
@@ -47,7 +57,7 @@ func NewAuthenticationManager(
 	}
 }
 
-func (am *AuthenticationManager) ValidateUserAuthentication(
+func (am *AuthenticationManagerImpl) ValidateUserAuthentication(
 	ctx context.Context,
 	username string,
 	password string,
@@ -72,7 +82,7 @@ func (am *AuthenticationManager) ValidateUserAuthentication(
 	}
 
 	// 3. Check Login Attempts
-	if err := am.checkLoginAttempts(username, user.ID, ipAddress); err != nil {
+	if err := am.CheckLoginAttempts(username, user.ID, ipAddress); err != nil {
 		return nil, err
 	}
 
@@ -82,11 +92,11 @@ func (am *AuthenticationManager) ValidateUserAuthentication(
 	return user, nil
 }
 
-func (am *AuthenticationManager) FindUserByUsername(username string) (*database.User, error) {
+func (am *AuthenticationManagerImpl) FindUserByUsername(username string) (*database.User, error) {
 	return am.userRepo.FindUserByUsername(username)
 }
 
-func (am *AuthenticationManager) CheckUserStatus(user *database.User) error {
+func (am *AuthenticationManagerImpl) CheckUserStatus(user *database.User) error {
 	switch user.Status {
 	case database.UserStatusLocked:
 		if user.LockedUntil.After(time.Now()) {
@@ -100,23 +110,51 @@ func (am *AuthenticationManager) CheckUserStatus(user *database.User) error {
 	return nil
 }
 
-func (am *AuthenticationManager) calculateLockDelay(attempts int) time.Duration {
+func (am *AuthenticationManagerImpl) CalculateLockDelay(attempts int) time.Duration {
 	// Exponential backoff with randomization
-	baseDelay := 1 * time.Second
 	maxDelay := 1 * time.Hour
-	// Exponential calculation
-	delay := baseDelay * time.Duration(math.Pow(2, float64(attempts-1)))
-	// Randomization
-	jitter := time.Duration(rand.Intn(1000)) * time.Millisecond
-	delay += jitter
 
+	// Ensure attempts starts from 1
+	if attempts < 1 {
+		attempts = 1
+	}
+
+	// Predefined delay steps to ensure precise control
+	delaySteps := []time.Duration{
+		1 * time.Second,  // 1st attempt
+		2 * time.Second,  // 2nd attempt
+		4 * time.Second,  // 3rd attempt
+		8 * time.Second,  // 4th attempt
+		16 * time.Second, // 5th attempt
+		32 * time.Second, // 6th attempt
+		1 * time.Minute,  // 7th attempt
+		2 * time.Minute,  // 8th attempt
+		4 * time.Minute,  // 9th attempt
+		1 * time.Hour,    // 10th and subsequent attempts
+	}
+
+	// Select the appropriate delay step
+	var rawDelay time.Duration
+	if attempts-1 < len(delaySteps) {
+		rawDelay = delaySteps[attempts-1]
+	} else {
+		rawDelay = maxDelay
+	}
+
+	// Randomization (limited to 10% of the current delay)
+	jitterMax := rawDelay / 10
+	jitter := time.Duration(rand.Intn(int(jitterMax.Milliseconds()))) * time.Millisecond
+	delay := rawDelay + jitter
+
+	// Final cap to ensure we don't exceed maxDelay
 	if delay > maxDelay {
 		delay = maxDelay
 	}
+
 	return delay
 }
 
-func (am *AuthenticationManager) checkLoginAttempts(
+func (am *AuthenticationManagerImpl) CheckLoginAttempts(
 	username string,
 	userID uint,
 	ipAddress string,
@@ -127,7 +165,7 @@ func (am *AuthenticationManager) checkLoginAttempts(
 	}
 
 	if attempts >= MAX_LOGIN_ATTEMPTS {
-		lockDuration := am.calculateLockDelay(attempts)
+		lockDuration := am.CalculateLockDelay(attempts)
 		// Automatically lock the user
 		err := am.userRepo.LockUser(
 			userID,
@@ -143,12 +181,12 @@ func (am *AuthenticationManager) checkLoginAttempts(
 	return nil
 }
 
-func (am *AuthenticationManager) recordFailedLoginAttempt(
+func (am *AuthenticationManagerImpl) recordFailedLoginAttempt(
 	username string,
 	ipAddress string,
 ) {
 	attempts, _, _ := am.loginAttemptRepo.GetLoginAttempts(username, ipAddress)
-	possibleLockDuration := am.calculateLockDelay(attempts + 1)
+	possibleLockDuration := am.CalculateLockDelay(attempts + 1)
 
 	am.logger.Warn().
 		Str("username", username).
@@ -164,7 +202,7 @@ func (am *AuthenticationManager) recordFailedLoginAttempt(
 	}
 }
 
-func (am *AuthenticationManager) resetLoginAttempts(
+func (am *AuthenticationManagerImpl) resetLoginAttempts(
 	username string,
 	ipAddress string,
 ) {
@@ -174,7 +212,7 @@ func (am *AuthenticationManager) resetLoginAttempts(
 	}
 }
 
-func (am *AuthenticationManager) ValidateToken(tokenString string, tokenType token.TokenType) (*token.Claims, error) {
+func (am *AuthenticationManagerImpl) ValidateToken(tokenString string, tokenType token.TokenType) (*token.Claims, error) {
 	claims, err := am.tokenManager.ValidateToken(tokenString, tokenType)
 	if err != nil {
 		return nil, err
@@ -183,3 +221,5 @@ func (am *AuthenticationManager) ValidateToken(tokenString string, tokenType tok
 	return claims, nil
 
 }
+
+var _ AuthenticationManager = (*AuthenticationManagerImpl)(nil)
