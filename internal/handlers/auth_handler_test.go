@@ -15,6 +15,7 @@ import (
 	"github.com/yourusername/user-management-api/internal/database/sqlite"
 	"github.com/yourusername/user-management-api/internal/repository"
 	"github.com/yourusername/user-management-api/internal/services"
+	"github.com/yourusername/user-management-api/pkg/authentication"
 	"github.com/yourusername/user-management-api/pkg/token"
 )
 
@@ -22,7 +23,8 @@ var db, _ = sqlite.CreateInMemoryTestDB()
 var repo = repository.NewUserRepository(db, zerolog.Logger{})
 var loginAttemptRepo = repository.NewLoginAttemptRepository(db, zerolog.Logger{})
 var tokenManager = token.NewTokenManager("secret_key", "refresh_secret_key")
-var authService = services.NewAuthService(tokenManager, repo, loginAttemptRepo, zerolog.Logger{})
+var authManager = authentication.NewAuthenticationManager(repo, tokenManager, loginAttemptRepo, zerolog.Logger{})
+var authService = services.NewAuthService(tokenManager, authManager, repo, zerolog.Logger{})
 var authHandler = NewAuthHandler(authService, zerolog.Logger{})
 
 func setupTestRouter() *gin.Engine {

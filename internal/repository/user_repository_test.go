@@ -152,12 +152,13 @@ func TestDeleteUser(t *testing.T) {
 	err := repo.CreateUser(user)
 	require.NoError(t, err)
 
-	// Delete the user
+	// Soft delete the user
 	err = repo.DeleteUser(user.ID)
 	require.NoError(t, err)
 
 	// Verify deletion
-	_, err = repo.FindUserByID(user.ID)
-	assert.Error(t, err)
-	assert.Equal(t, repository.ErrUserNotFound, err)
+	user, err = repo.FindUserByID(user.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, user.ID, user.ID)
+	assert.NotNil(t, user.DeletedAt)
 }

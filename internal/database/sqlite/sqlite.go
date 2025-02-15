@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS users (
 	deleted_at DATETIME DEFAULT NULL,
 	locked_until DATETIME DEFAULT NULL,
 	lock_reason TEXT DEFAULT NULL,
+	last_activity_at DATETIME DEFAULT NULL,
 	status TEXT DEFAULT 'active'
 );
 

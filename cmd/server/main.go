@@ -18,6 +18,7 @@ import (
 	"github.com/yourusername/user-management-api/internal/middleware"
 	"github.com/yourusername/user-management-api/internal/repository"
 	"github.com/yourusername/user-management-api/internal/services"
+	"github.com/yourusername/user-management-api/pkg/authentication"
 	"github.com/yourusername/user-management-api/pkg/logger"
 	"github.com/yourusername/user-management-api/pkg/token"
 )
@@ -78,7 +79,8 @@ func main() {
 	// inject to auth service
 	loginAttemptRepository := repository.NewLoginAttemptRepository(db, log)
 	tokenManager := token.NewTokenManager(cfg.JWTSecret, cfg.JWTRefreshSecret)
-	authService := services.NewAuthService(tokenManager, userRepository, loginAttemptRepository, log)
+	authManager := authentication.NewAuthenticationManager(userRepository, tokenManager, loginAttemptRepository, log)
+	authService := services.NewAuthService(tokenManager, authManager, userRepository, log)
 	// inject to handler
 	userHandler := handlers.NewUserHandler(userService, log)
 	authHandler := handlers.NewAuthHandler(authService, log)
@@ -113,8 +115,8 @@ func main() {
 		}
 		// User routes (protected)
 		userGroup := v1Group.Group("/users")
-		// Add JWT middleware
-		userGroup.Use(middleware.JWTAuthMiddleware(tokenManager, log))
+		// Add Auth middleware
+		userGroup.Use(middleware.AuthMiddleware(authManager, log))
 		{
 			userGroup.GET("/", userHandler.GetAllUsers)
 			userGroup.GET("/:id", userHandler.GetUserByID)
