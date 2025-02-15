@@ -84,3 +84,15 @@ func Default() zerolog.Logger {
 	}
 	return New(defaultConfig)
 }
+
+func init() {
+	var _ = New(Config{
+		Level:       "debug",
+		FilePath:    "logs/app.log",
+		MaxSize:     100,
+		MaxBackups:  3,
+		MaxAge:      28,
+		EnableFile:  true,
+		Development: false,
+	})
+}

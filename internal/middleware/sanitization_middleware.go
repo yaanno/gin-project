@@ -41,3 +41,6 @@ func SanitizationMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// Ensure the middleware implements the gin.HandlerFunc interface
+var _ gin.HandlerFunc = SanitizationMiddleware()
