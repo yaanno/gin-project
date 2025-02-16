@@ -95,6 +95,10 @@ func main() {
 	// Add ip based rate limit middleware
 	router.Use(middleware.IPRateLimitMiddleware(cfg.RateLimitLimit, int64(cfg.RateLimitBurst), cfg.RateLimitDuration, log))
 
+	// Add security headers middleware
+	securityHeadersMiddleware := middleware.NewSecurityHeadersMiddleware()
+	router.Use(securityHeadersMiddleware.Handler())
+
 	// Add CSRF middleware
 	csrfMiddleware := middleware.NewCSRFMiddleware(&log,
 		middleware.WithCookieDomain("localhost"),
