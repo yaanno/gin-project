@@ -17,7 +17,7 @@
 - Supports easy extension and maintenance
 
 ### 2. Directory Structure
-
+```
 project/
 ├── cmd/
 │   └── server/
@@ -34,7 +34,7 @@ project/
 │   ├── errors/               # Custom error handling
 │   └── token/                # Token management
 └── configs/                  # Configuration files
-
+```
 
 ## 🔒 Security Features
 
