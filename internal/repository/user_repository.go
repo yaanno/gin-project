@@ -1,17 +1,12 @@
 package repository
 
 import (
-	"errors"
 	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
 	"github.com/yourusername/user-management-api/pkg/errors/apperrors"
 	"gorm.io/gorm"
-)
-
-var (
-	ErrUserNotFound = errors.New("user not found")
 )
 
 type UserRepository interface {
