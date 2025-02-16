@@ -39,6 +39,7 @@ const (
 	ErrCodeUserInactive       ErrorCode = "USER_INACTIVE"
 	ErrCodeUserDeleted        ErrorCode = "USER_DELETED"
 	ErrCodeUnauthorized       ErrorCode = "UNAUTHORIZED"
+	ErrCodeInvalidCSRFToken   ErrorCode = "INVALID_CSRF_TOKEN"
 
 	// General Errors
 	ErrCodeUnknownError  ErrorCode = "UNKNOWN_ERROR"

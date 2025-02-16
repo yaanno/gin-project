@@ -95,6 +95,13 @@ func main() {
 	// Add ip based rate limit middleware
 	router.Use(middleware.IPRateLimitMiddleware(cfg.RateLimitLimit, int64(cfg.RateLimitBurst), cfg.RateLimitDuration, log))
 
+	// Add CSRF middleware
+	csrfMiddleware := middleware.NewCSRFMiddleware(&log,
+		middleware.WithCookieDomain("localhost"),
+		middleware.WithExcludedRoutes([]string{"/api/v1/health"}),
+		middleware.WithCookieName("X-CSRF-Token"))
+	router.Use(csrfMiddleware.Handler())
+
 	// Api routes
 	v1Group := router.Group("/api/v1")
 	{
