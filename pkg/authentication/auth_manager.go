@@ -2,7 +2,6 @@ package authentication
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
 	"github.com/yourusername/user-management-api/internal/repository"
+	"github.com/yourusername/user-management-api/pkg/errors/apperrors"
 	"github.com/yourusername/user-management-api/pkg/token"
 )
 
@@ -57,19 +57,21 @@ func (am *AuthenticationManagerImpl) ValidateUserAuthentication(
 	// Consolidated validation logic
 	user, err := am.FindUserByUsername(username)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewNotFoundError("User not found", err, "user", username)
 	}
 
 	// 1. Check User Status
 	if err := am.CheckUserStatus(user); err != nil {
-		return nil, err
+		return nil, apperrors.NewInternalError("Failed to check user status", err)
 	}
 
 	// 2. Validate Password
 	if !user.CheckPasswordHash(password) {
 		// Record failed login attempt
-		am.recordFailedLoginAttempt(username, ipAddress)
-		return nil, errors.New("invalid credentials")
+		if err := am.recordFailedLoginAttempt(username, ipAddress); err != nil {
+			return nil, apperrors.NewInternalError("Failed to record login attempt", err)
+		}
+		return nil, apperrors.NewAuthenticationError(apperrors.ErrCodeInvalidCredentials, "invalid credentials", nil)
 	}
 
 	// 3. Check Login Attempts
@@ -91,12 +93,12 @@ func (am *AuthenticationManagerImpl) CheckUserStatus(user *database.User) error 
 	switch user.Status {
 	case database.UserStatusLocked:
 		if user.LockedUntil.After(time.Now()) {
-			return fmt.Errorf("account locked until %s. Reason: %s",
+			return apperrors.NewAuthenticationError(apperrors.ErrCodeUserLocked, fmt.Sprintf("account locked until %s. Reason: %s",
 				user.LockedUntil.Format(time.RFC3339),
-				user.LockReason)
+				user.LockReason), nil)
 		}
 	case database.UserStatusInactive, database.UserStatusDeleted:
-		return errors.New("account is not active")
+		return apperrors.NewAuthenticationError(apperrors.ErrCodeUserInactive, "account inactive", nil)
 	}
 	return nil
 }
@@ -165,8 +167,9 @@ func (am *AuthenticationManagerImpl) CheckLoginAttempts(
 		)
 		if err != nil {
 			am.logger.Error().Err(err).Msg("Failed to lock user")
+			return apperrors.NewInternalError("Failed to lock user", err)
 		}
-		return errors.New("too many login attempts. Account locked")
+		return apperrors.NewAuthenticationError(apperrors.ErrCodeUserLocked, "too many login attempts. Account locked", nil)
 	}
 
 	return nil
@@ -175,7 +178,7 @@ func (am *AuthenticationManagerImpl) CheckLoginAttempts(
 func (am *AuthenticationManagerImpl) recordFailedLoginAttempt(
 	username string,
 	ipAddress string,
-) {
+) error {
 	attempts, _, _ := am.loginAttemptRepo.GetLoginAttempts(username, ipAddress)
 	possibleLockDuration := am.CalculateLockDelay(attempts + 1)
 
@@ -190,17 +193,21 @@ func (am *AuthenticationManagerImpl) recordFailedLoginAttempt(
 	err := am.loginAttemptRepo.IncrementLoginAttempts(username, ipAddress, false)
 	if err != nil {
 		am.logger.Error().Err(err).Msg("Failed to record login attempt")
+		return apperrors.NewInternalError("Failed to record login attempt", err)
 	}
+
+	return nil
 }
 
 func (am *AuthenticationManagerImpl) resetLoginAttempts(
 	username string,
 	ipAddress string,
-) {
-	err := am.loginAttemptRepo.ResetLoginAttempts(username, ipAddress)
-	if err != nil {
+) error {
+	if err := am.loginAttemptRepo.ResetLoginAttempts(username, ipAddress); err != nil {
 		am.logger.Error().Err(err).Msg("Failed to reset login attempts")
+		return apperrors.NewInternalError("Failed to reset login attempts", err)
 	}
+	return nil
 }
 
 func (am *AuthenticationManagerImpl) ValidateToken(tokenString string, tokenType token.TokenType) (*token.Claims, error) {

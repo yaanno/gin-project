@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
+	"github.com/yourusername/user-management-api/pkg/errors/apperrors"
 	"gorm.io/gorm"
 )
 
@@ -44,8 +45,8 @@ func NewUserRepository(db *gorm.DB, log zerolog.Logger) *UserRepositoryImpl {
 func (r *UserRepositoryImpl) CreateUser(user *database.User) error {
 	result := r.db.Create(user)
 	if result.Error != nil {
-		r.log.Error().Err(result.Error).Msg("Failed to create user")
-		return result.Error
+		r.log.Error().Err(result.Error).Str("user", user.Username).Msg("Failed to create user")
+		return apperrors.NewDatabaseError("Failed to create user", result.Error)
 	}
 	return nil
 }
@@ -54,13 +55,13 @@ func (r *UserRepositoryImpl) FindUserByUsername(username string) (*database.User
 	user := &database.User{}
 	result := r.db.First(user, "username = ?", username)
 	if result.Error == gorm.ErrRecordNotFound {
-		r.log.Error().Err(result.Error).Msg("User not found")
-		return &database.User{}, ErrUserNotFound
+		r.log.Error().Err(result.Error).Str("username", username).Msg("User not found")
+		return &database.User{}, apperrors.NewNotFoundError("User not found", result.Error, "username", username)
 	}
 
 	if result.Error != nil {
-		r.log.Error().Err(result.Error).Msg("Failed to find user")
-		return &database.User{}, result.Error
+		r.log.Error().Err(result.Error).Str("username", username).Msg("Failed to find user")
+		return &database.User{}, apperrors.NewDatabaseError("Failed to find user", result.Error)
 	}
 
 	return user, nil
@@ -71,13 +72,13 @@ func (r *UserRepositoryImpl) FindUserByID(userID uint) (*database.User, error) {
 	result := r.db.First(user, "id = ?", userID)
 
 	if result.Error == gorm.ErrRecordNotFound {
-		r.log.Error().Err(result.Error).Msg("User not found")
-		return &database.User{}, ErrUserNotFound
+		r.log.Error().Err(result.Error).Uint("user_id", userID).Msg("User not found")
+		return &database.User{}, apperrors.NewNotFoundError("User not found", result.Error, "id", userID)
 	}
 
 	if result.Error != nil {
-		r.log.Error().Err(result.Error).Msg("Failed to find user")
-		return &database.User{}, result.Error
+		r.log.Error().Err(result.Error).Uint("user_id", userID).Msg("Failed to find user")
+		return &database.User{}, apperrors.NewDatabaseError("Failed to find user", result.Error)
 	}
 
 	return user, nil
@@ -87,8 +88,8 @@ func (r *UserRepositoryImpl) UpdateUser(user *database.User) error {
 	result := r.db.Updates(user)
 
 	if result.Error != nil {
-		r.log.Error().Err(result.Error).Msg("Failed to update user")
-		return result.Error
+		r.log.Error().Err(result.Error).Str("user", user.Username).Msg("Failed to update user")
+		return apperrors.NewDatabaseError("Failed to update user", result.Error)
 	}
 	return nil
 }
@@ -99,11 +100,11 @@ func (r *UserRepositoryImpl) DeleteUser(userID uint) error {
 		DeletedAt: gorm.DeletedAt{Valid: true},
 	})
 	if result.Error != nil {
-		r.log.Error().Err(result.Error).Msg("Failed to delete user")
-		return result.Error
+		r.log.Error().Err(result.Error).Uint("user_id", userID).Msg("Failed to delete user")
+		return apperrors.NewDatabaseError("Failed to delete user", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return ErrUserNotFound
+		return apperrors.NewNotFoundError("User not found", nil, "id", userID)
 	}
 	return nil
 }
@@ -113,7 +114,7 @@ func (r *UserRepositoryImpl) GetAllUsers() ([]database.User, error) {
 	result := r.db.Find(&users)
 	if result.Error != nil {
 		r.log.Error().Err(result.Error).Msg("Failed to get users")
-		return []database.User{}, result.Error
+		return []database.User{}, apperrors.NewDatabaseError("Failed to get users", result.Error)
 	}
 	return users, nil
 }
@@ -127,8 +128,8 @@ func (r *UserRepositoryImpl) LockUser(userID uint, reason string, duration time.
 		LockedUntil: lockedUntil,
 	})
 	if result.Error != nil {
-		r.log.Error().Err(result.Error).Msg("Failed to lock user")
-		return result.Error
+		r.log.Error().Err(result.Error).Uint("user_id", userID).Msg("Failed to lock user")
+		return apperrors.NewDatabaseError("Failed to lock user", result.Error)
 	}
 	return nil
 }
@@ -140,8 +141,8 @@ func (r *UserRepositoryImpl) UnlockUser(userID uint) error {
 		LockReason: "",
 	})
 	if result.Error != nil {
-		r.log.Error().Err(result.Error).Msg("Failed to unlock user")
-		return result.Error
+		r.log.Error().Err(result.Error).Uint("user_id", userID).Msg("Failed to unlock user")
+		return apperrors.NewDatabaseError("Failed to unlock user", result.Error)
 	}
 	return nil
 }
@@ -153,8 +154,8 @@ func (r *UserRepositoryImpl) MarkUserInactive(userID uint) error {
 		Status: database.UserStatusInactive,
 	})
 	if result.Error != nil {
-		r.log.Error().Err(result.Error).Msg("Failed to mark user inactive")
-		return result.Error
+		r.log.Error().Err(result.Error).Uint("user_id", userID).Msg("Failed to mark user inactive")
+		return apperrors.NewDatabaseError("Failed to mark user inactive", result.Error)
 	}
 	r.log.Info().Uint("user_id", userID).Msg("User marked inactive")
 	return nil
@@ -163,8 +164,8 @@ func (r *UserRepositoryImpl) MarkUserInactive(userID uint) error {
 func (r *UserRepositoryImpl) HardDeleteUser(userID uint) error {
 	result := r.db.Delete(&database.User{}, "id = ?", userID)
 	if result.Error != nil {
-		r.log.Error().Err(result.Error).Msg("Failed to hard delete user")
-		return result.Error
+		r.log.Error().Err(result.Error).Uint("user_id", userID).Msg("Failed to hard delete user")
+		return apperrors.NewDatabaseError("Failed to hard delete user", result.Error)
 	}
 	return nil
 }
@@ -172,10 +173,11 @@ func (r *UserRepositoryImpl) HardDeleteUser(userID uint) error {
 func (r *UserRepositoryImpl) HardDeleteUserMarkedForDeletion(userID uint) error {
 	result := r.db.Unscoped().Where("id = ? AND status = ?", userID, database.UserStatusDeleted).Delete(&database.User{})
 	if result.Error != nil {
-		return result.Error
+		r.log.Error().Err(result.Error).Uint("user_id", userID).Msg("Failed to hard delete user")
+		return apperrors.NewDatabaseError("Failed to hard delete user", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return ErrUserNotFound
+		return apperrors.NewNotFoundError("User not found", nil, "id", userID)
 	}
 	return nil
 }
@@ -188,7 +190,8 @@ func (r *UserRepositoryImpl) HardDeletePermanentlyInactiveUsers() error {
 	).Delete(&database.User{})
 
 	if result.Error != nil {
-		return result.Error
+		r.log.Error().Err(result.Error).Msg("Failed to hard delete permanently inactive users")
+		return apperrors.NewDatabaseError("Failed to hard delete permanently inactive users", result.Error)
 	}
 
 	r.log.Info().
@@ -210,7 +213,8 @@ func (r *UserRepositoryImpl) MarkInactiveUsers() error {
 		})
 
 	if result.Error != nil {
-		return result.Error
+		r.log.Error().Err(result.Error).Msg("Failed to mark inactive")
+		return apperrors.NewDatabaseError("Failed to mark inactive", result.Error)
 	}
 
 	r.log.Info().
@@ -236,7 +240,8 @@ func (r *UserRepositoryImpl) LockSecurityViolationUsers() error {
 		})
 
 	if result.Error != nil {
-		return result.Error
+		r.log.Error().Err(result.Error).Msg("Failed to lock security violation users")
+		return apperrors.NewDatabaseError("Failed to lock security violation users", result.Error)
 	}
 
 	r.log.Info().

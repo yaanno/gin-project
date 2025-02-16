@@ -5,6 +5,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
+	"github.com/yourusername/user-management-api/pkg/errors/apperrors"
 	"gorm.io/gorm"
 )
 
@@ -27,7 +28,6 @@ func NewLoginAttemptRepository(db *gorm.DB, log zerolog.Logger) *LoginAttemptRep
 }
 
 func (r *LoginAttemptRepositoryImpl) IncrementLoginAttempts(username string, ipAddress string, success bool) error {
-
 	newLoginAttempt := database.LoginAttempt{
 		Username:    username,
 		IpAddress:   ipAddress,
@@ -146,12 +146,12 @@ func (r *LoginAttemptRepositoryImpl) GetLoginAttempts(username string, ipAddress
 
 	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		r.log.Error().Err(result.Error).Str("username", username).Str("ip_address", ipAddress).Msg("Failed to get login attempts")
-		return 0, time.Time{}, result.Error
+		return 0, time.Time{}, apperrors.NewDatabaseError("Failed to get login attempts", result.Error)
 	}
 
 	if result.Error == gorm.ErrRecordNotFound {
 		r.log.Info().Str("username", username).Str("ip_address", ipAddress).Msg("No login attempts found")
-		return 0, time.Time{}, nil
+		return 0, time.Time{}, apperrors.NewNotFoundError("No login attempts found", result.Error, "user", username)
 	}
 
 	r.log.Info().Str("username", username).Str("ip_address", ipAddress).Msg("Login attempts found")

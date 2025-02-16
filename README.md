@@ -93,6 +93,8 @@ go test ./...
 
 ## 🔍 API Endpoints
 
+Endpoint base route: `/api/v1`
+
 ### Authentication
 - `POST /auth/register`: Create new user account
 - `POST /auth/login`: User login, returns JWT tokens

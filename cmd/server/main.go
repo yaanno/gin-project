@@ -86,7 +86,9 @@ func main() {
 	// Middleware
 	router.Use(gin.Recovery())
 
-	// Add error middleware
+	// Add error middleware.
+	// At this point the middleware will check if there are any errors in the context and respond accordingly
+	// TODO: separate this from a proper error package
 	router.Use(middleware.ErrorMiddleware(log))
 
 	// Not found handler

@@ -35,14 +35,15 @@ func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 	p := &utils.PasswordValidatorImpl{}
 	sanitizedPassword := p.SanitizePassword(req.Password)
 	if !p.IsPasswordComplex(sanitizedPassword) {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Password does not meet complexity requirements. " +
-			"Minimum 12 characters with uppercase, lowercase, number, and special character."})
+		a.logger.Error().Str("username", req.Username).Str("email", req.Email).Msg("Password does not meet complexity requirements")
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Password does not meet complexity requirements"})
 		return
 	}
 
 	user, err := a.service.RegisterUser(ctx, req.Username, sanitizedPassword, req.Email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		a.logger.Err(err).Str("username", req.Username).Str("email", req.Email).Msg("Failed to register user")
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to register user", Details: err.Error()})
 		return
 	}
 
@@ -84,14 +85,14 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 	// Validate refresh token
 	userID, username, err := a.service.ValidateRefreshToken(ctx, refreshRequest.RefreshToken)
 	if err != nil {
-		a.logger.Err(err).Msg("Invalid refresh token")
+		a.logger.Err(err).Str("refresh_token", refreshRequest.RefreshToken).Msg("Invalid refresh token")
 		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Invalid refresh token"})
 		return
 	}
 
 	tokenPair, err := a.service.RefreshTokens(ctx, userID, username)
 	if err != nil {
-		a.logger.Err(err).Msg("Failed to refresh tokens")
+		a.logger.Err(err).Uint("user_id", userID).Str("username", username).Msg("Failed to refresh tokens")
 		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Failed to refresh tokens", Details: err.Error()})
 		return
 	}
@@ -105,7 +106,7 @@ func (a *AuthHandlerImpl) LogoutUser(c *gin.Context) {
 	// Extract token from Authorization header
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		a.logger.Info().Msg("No authorization header")
+		a.logger.Error().Str("header", "Authorization").Msg("Missing authorization header")
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Authorization header missing"})
 		return
 	}
@@ -113,14 +114,14 @@ func (a *AuthHandlerImpl) LogoutUser(c *gin.Context) {
 	// Extract token (expecting "Bearer <token>")
 	parts := strings.Split(authHeader, " ")
 	if len(parts) != 2 || parts[0] != "Bearer" {
-		a.logger.Info().Msg("Invalid authorization format")
+		a.logger.Error().Msg("Invalid authorization format")
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid authorization format"})
 		return
 	}
 	token := parts[1]
 
 	if err := a.service.LogoutUser(ctx, token); err != nil {
-		a.logger.Err(err).Msg("Failed to logout user")
+		a.logger.Err(err).Str("token", token).Msg("Failed to logout user")
 		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Failed to logout user", Details: err.Error()})
 		return
 	}
