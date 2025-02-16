@@ -2,12 +2,12 @@
 package token
 
 import (
-	"errors"
 	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/yourusername/user-management-api/pkg/errors/apperrors"
 )
 
 // TokenType defines different types of tokens
@@ -28,25 +28,14 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// Errors for token management
-type (
-	TokenExpiredError     struct{ Message string }
-	TokenBlacklistedError struct{ Message string }
-	InvalidTokenTypeError struct{ Message string }
-)
-
-func (e TokenExpiredError) Error() string     { return e.Message }
-func (e TokenBlacklistedError) Error() string { return e.Message }
-func (e InvalidTokenTypeError) Error() string { return e.Message }
-
 type TokenManager interface {
-	ValidateToken(tokenString string, tokenType TokenType) (*Claims, error)
-	InvalidateToken(tokenString string) error
+	ValidateToken(tokenString string, tokenType TokenType) (*Claims, apperrors.AppError)
+	InvalidateToken(tokenString string) apperrors.AppError
 	GenerateToken(
 		userID uint,
 		username string,
 		tokenType TokenType,
-	) (string, error)
+	) (string, apperrors.AppError)
 }
 
 // TokenManager handles all token-related operations
@@ -70,7 +59,7 @@ func (tm *TokenManagerImpl) GenerateToken(
 	userID uint,
 	username string,
 	tokenType TokenType,
-) (string, error) {
+) (string, apperrors.AppError) {
 	var (
 		expirationDuration time.Duration
 		secretKey          []byte
@@ -84,7 +73,7 @@ func (tm *TokenManagerImpl) GenerateToken(
 		expirationDuration = 7 * 24 * time.Hour
 		secretKey = tm.refreshSecretKey
 	default:
-		return "", InvalidTokenTypeError{Message: "Invalid token type"}
+		return "", apperrors.NewTokenError(apperrors.ErrCodeTokenInvalidType, "Invalid token type", nil)
 	}
 
 	claims := Claims{
@@ -107,17 +96,21 @@ func (tm *TokenManagerImpl) GenerateToken(
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(secretKey)
+	signedToken, err := token.SignedString(secretKey)
+	if err != nil {
+		return "", apperrors.NewTokenError(apperrors.ErrCodeTokenSigningError, "Failed to sign token", nil)
+	}
+	return signedToken, nil
 }
 
 // ValidateToken validates a token and returns its claims
 func (tm *TokenManagerImpl) ValidateToken(
 	tokenString string,
 	expectedTokenType TokenType,
-) (*Claims, error) {
+) (*Claims, apperrors.AppError) {
 	// Check if token is blacklisted first
 	if tm.blacklist.IsBlacklisted(tokenString) {
-		return nil, TokenBlacklistedError{Message: "Token is blacklisted"}
+		return nil, apperrors.NewTokenError(apperrors.ErrCodeTokenBlacklisted, "Token is blacklisted", nil)
 	}
 
 	// Determine which secret key to use
@@ -128,7 +121,7 @@ func (tm *TokenManagerImpl) ValidateToken(
 	case RefreshToken:
 		secretKey = tm.refreshSecretKey
 	default:
-		return nil, InvalidTokenTypeError{Message: "Invalid token type"}
+		return nil, apperrors.NewTokenError(apperrors.ErrCodeTokenInvalidType, "Invalid token type", nil)
 	}
 
 	// Parse and validate token
@@ -141,31 +134,26 @@ func (tm *TokenManagerImpl) ValidateToken(
 	)
 
 	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
-			return nil, TokenExpiredError{Message: "Token has expired"}
-		}
-		return &Claims{}, err
+		return &Claims{}, apperrors.NewTokenError(apperrors.ErrCodeParseError, "Token parsing error", err)
 	}
 
 	// Type assert claims
 	claims, ok := token.Claims.(*Claims)
 	if !ok {
-		return &Claims{}, errors.New("invalid token claims")
+		return &Claims{}, apperrors.NewTokenError(apperrors.ErrCodeTokenInvalidClaim, "Invalid token claims", nil)
 	}
 
 	// Validate token type
 	if claims.TokenType != expectedTokenType {
-		return nil, InvalidTokenTypeError{
-			Message: "Token type does not match expected type",
-		}
+		return nil, apperrors.NewTokenError(apperrors.ErrCodeTokenInvalidType, "Token type does not match expected type", nil)
 	}
 
 	return claims, nil
 }
 
-func (tm *TokenManagerImpl) InvalidateToken(tokenString string) error {
+func (tm *TokenManagerImpl) InvalidateToken(tokenString string) apperrors.AppError {
 	if tm.blacklist.IsBlacklisted(tokenString) {
-		return TokenBlacklistedError{Message: "Token is blacklisted"}
+		return apperrors.NewTokenError(apperrors.ErrCodeTokenBlacklisted, "Token is blacklisted", nil)
 	}
 
 	_, err := tm.ValidateToken(tokenString, "access")

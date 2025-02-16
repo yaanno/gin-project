@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/yourusername/user-management-api/internal/database"
+	"github.com/yourusername/user-management-api/pkg/errors/apperrors"
 )
 
 type UserService interface {
@@ -15,14 +16,14 @@ type UserService interface {
 }
 
 type AuthService interface {
-	GenerateAccessToken(ctx context.Context, userID uint, username string) (string, error)
-	GenerateRefreshToken(ctx context.Context, userID uint, username string) (string, error)
+	GenerateAccessToken(ctx context.Context, userID uint, username string) (string, apperrors.AppError)
+	GenerateRefreshToken(ctx context.Context, userID uint, username string) (string, apperrors.AppError)
 	ValidateRefreshToken(ctx context.Context, token string) (uint, string, error)
-	ValidateAccessToken(ctx context.Context, token string) (*database.User, error)
-	RefreshTokens(ctx context.Context, userID uint, username string) (*database.TokenPair, error)
+	// ValidateAccessToken(ctx context.Context, token string) (*database.User, apperrors.AppError)
+	RefreshTokens(ctx context.Context, userID uint, username string) (*database.TokenPair, apperrors.AppError)
 
 	RegisterUser(ctx context.Context, username, password, email string) (*database.User, error)
-	LoginUser(ctx context.Context, username, password, ipAddr string) (*database.TokenPair, error)
+	LoginUser(ctx context.Context, username, password, ipAddr string) (*database.TokenPair, apperrors.AppError)
 	LogoutUser(ctx context.Context, token string) error
 }
 

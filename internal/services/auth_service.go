@@ -3,12 +3,12 @@ package services
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/rs/zerolog"
 	"github.com/yourusername/user-management-api/internal/database"
 	"github.com/yourusername/user-management-api/internal/repository"
 	"github.com/yourusername/user-management-api/pkg/authentication"
+	"github.com/yourusername/user-management-api/pkg/errors/apperrors"
 	"github.com/yourusername/user-management-api/pkg/token"
 	"github.com/yourusername/user-management-api/pkg/utils"
 )
@@ -32,15 +32,15 @@ func NewAuthService(tokenManager token.TokenManager,
 	}
 }
 
-func (s *AuthServiceImpl) GenerateAccessToken(ctx context.Context, userID uint, username string) (string, error) {
+func (s *AuthServiceImpl) GenerateAccessToken(ctx context.Context, userID uint, username string) (string, apperrors.AppError) {
 	return s.tokenManager.GenerateToken(userID, username, "access")
 }
 
-func (s *AuthServiceImpl) GenerateRefreshToken(ctx context.Context, userID uint, username string) (string, error) {
+func (s *AuthServiceImpl) GenerateRefreshToken(ctx context.Context, userID uint, username string) (string, apperrors.AppError) {
 	return s.tokenManager.GenerateToken(userID, username, "refresh")
 }
 
-func (s *AuthServiceImpl) RefreshTokens(ctx context.Context, userID uint, username string) (*database.TokenPair, error) {
+func (s *AuthServiceImpl) RefreshTokens(ctx context.Context, userID uint, username string) (*database.TokenPair, apperrors.AppError) {
 
 	accessToken, err := s.GenerateAccessToken(ctx, userID, username)
 	if err != nil {
@@ -58,23 +58,25 @@ func (s *AuthServiceImpl) RefreshTokens(ctx context.Context, userID uint, userna
 }
 
 // TODO: CURRENTLY UNUSED, IMPLEMENT LATER
-func (s *AuthServiceImpl) ValidateAccessToken(ctx context.Context, tokenString string) (*database.User, error) {
-	claims, err := s.tokenManager.ValidateToken(tokenString, "access")
-	if err != nil {
-		return &database.User{}, err
-	}
+// func (s *AuthServiceImpl) ValidateAccessToken(ctx context.Context, tokenString string) (*database.User, apperrors.AppError) {
+// 	claims, err := s.tokenManager.ValidateToken(tokenString, "access")
+// 	if err != nil {
+// 		return &database.User{}, err
+// 	}
 
-	if claims.TokenType != "access" {
-		return &database.User{}, fmt.Errorf("invalid token type")
-	}
+// 	if claims.TokenType != "access" {
+// 		return &database.User{}, apperrors.NewTokenError(apperrors.ErrCodeTokenInvalidType, "Invalid token type", nil)
+// 	}
 
-	user, err := s.repo.FindUserByID(claims.UserID)
-	if err != nil {
-		return &database.User{}, err
-	}
-
-	return user, nil
-}
+// 	user, err := s.repo.FindUserByID(claims.UserID)
+// 	if apperrors.Is(err, apperrors.ErrCodeUserNotFound) {
+// 		return &database.User{}, err
+// 	}
+// 	if err != nil {
+// 		return &database.User{}, err
+// 	}
+// 	return user, nil
+// }
 
 func (s *AuthServiceImpl) ValidateRefreshToken(ctx context.Context, tokenString string) (uint, string, error) {
 	claims, err := s.tokenManager.ValidateToken(tokenString, "refresh")
@@ -83,12 +85,12 @@ func (s *AuthServiceImpl) ValidateRefreshToken(ctx context.Context, tokenString 
 	}
 
 	if claims.TokenType != "refresh" {
-		return 0, "", fmt.Errorf("invalid token type")
+		return 0, "", apperrors.NewTokenError(apperrors.ErrCodeTokenInvalidType, "Invalid token type", nil)
 	}
 	return claims.UserID, claims.Username, nil
 }
 
-func (s *AuthServiceImpl) LoginUser(ctx context.Context, username, password, ipAddr string) (*database.TokenPair, error) {
+func (s *AuthServiceImpl) LoginUser(ctx context.Context, username, password, ipAddr string) (*database.TokenPair, apperrors.AppError) {
 
 	// Validate the user's credentials
 	user, err := s.authenticationManager.ValidateUserAuthentication(ctx, username, password, ipAddr)

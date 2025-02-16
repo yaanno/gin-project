@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/yourusername/user-management-api/internal/database/migrations"
+	"github.com/yourusername/user-management-api/pkg/errors/apperrors"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -26,13 +27,13 @@ func InitializeDatabase(config DatabaseConfig) (*gorm.DB, error) {
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewInitializationError("Failed to initialize database", err)
 	}
 
 	// Connection pooling
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, err
+		return nil, apperrors.NewInitializationError("Failed to get database connection", err)
 	}
 
 	sqlDB.SetMaxOpenConns(config.MaxOpenConns)       // Maximum number of open connections
@@ -43,7 +44,7 @@ func InitializeDatabase(config DatabaseConfig) (*gorm.DB, error) {
 	// Run migrations
 	if err := migrations.RunMigrations(db); err != nil {
 		log.Fatalf("Database migration failed: %v", err)
-		return nil, err
+		return nil, apperrors.NewInitializationError("Database migration failed", err)
 	}
 
 	return db, nil

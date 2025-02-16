@@ -10,6 +10,20 @@ const (
 	ErrCodeInvalidRateLimitConfig ErrorCode = "INVALID_RATE_LIMIT_CONFIG"
 	ErrCodeTooManyRequests        ErrorCode = "RATE_LIMIT_EXCEEDED"
 
+	// Initialization Errors
+	ErrCodeInitializationError ErrorCode = "INITIALIZATION_ERROR"
+
+	// Token validation errors
+	ErrCodeInvalidToken          ErrorCode = "INVALID_TOKEN"
+	ErrCodeTokenExpired          ErrorCode = "TOKEN_EXPIRED"
+	ErrCodeTokenMalformed        ErrorCode = "TOKEN_MALFORMED"
+	ErrCodeTokenInvalidClaim     ErrorCode = "TOKEN_INVALID_CLAIM"
+	ErrCodeTokenBlacklisted      ErrorCode = "TOKEN_BLACKLISTED"
+	ErrCodeTokenInvalidType      ErrorCode = "TOKEN_INVALID_TYPE"
+	ErrCodeInvalidTokenSignature ErrorCode = "INVALID_TOKEN_SIGNATURE"
+	ErrCodeTokenSigningError     ErrorCode = "TOKEN_SIGNING_ERROR"
+	ErrCodeParseError            ErrorCode = "PARSE_ERROR"
+
 	// Database Errors
 	ErrCodeDatabaseError ErrorCode = "DATABASE_ERROR"
 

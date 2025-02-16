@@ -57,14 +57,14 @@ func main() {
 	// Initialize configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to load configuration")
+		log.Error().Err(err).Msg("Failed to load configuration")
 	}
 
 	// Initialize database connection
 	// db, err := sqlite.NewSQLiteDatabase(sqliteConfig)
 	db, err := sqlite.InitializeDatabase(databaseConfig)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to database")
+		log.Fatal().Err(err).Str("database", "sqlite").Msg("Failed to initialize database")
 	}
 
 	// inject to repository
@@ -95,7 +95,7 @@ func main() {
 	router.NoRoute(middleware.HandleNotFound(log))
 
 	// Add sanitization middleware
-	router.Use(middleware.SanitizationMiddleware())
+	router.Use(middleware.SanitizationMiddleware(&log))
 
 	// Add ip based rate limit middleware
 	router.Use(middleware.IPRateLimitMiddleware(cfg.RateLimitLimit, cfg.RateLimitBurst, cfg.RateLimitDuration, log))

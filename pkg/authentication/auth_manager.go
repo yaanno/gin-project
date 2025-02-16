@@ -17,14 +17,14 @@ import (
 const MAX_LOGIN_ATTEMPTS = 5
 
 type AuthenticationManager interface {
-	CheckUserStatus(user *database.User) error
+	CheckUserStatus(user *database.User) apperrors.AppError
 	CalculateLockDelay(attempts int) time.Duration
 	CheckLoginAttempts(
 		username string,
 		userID uint,
 		ipAddress string,
-	) error
-	ValidateToken(tokenString string, tokenType token.TokenType) (*token.Claims, error)
+	) apperrors.AppError
+	ValidateToken(tokenString string, tokenType token.TokenType) (*token.Claims, apperrors.AppError)
 }
 
 type AuthenticationManagerImpl struct {
@@ -53,7 +53,7 @@ func (am *AuthenticationManagerImpl) ValidateUserAuthentication(
 	username string,
 	password string,
 	ipAddress string,
-) (*database.User, error) {
+) (*database.User, apperrors.AppError) {
 	// Consolidated validation logic
 	user, err := am.FindUserByUsername(username)
 	if err != nil {
@@ -62,7 +62,7 @@ func (am *AuthenticationManagerImpl) ValidateUserAuthentication(
 
 	// 1. Check User Status
 	if err := am.CheckUserStatus(user); err != nil {
-		return nil, apperrors.NewInternalError("Failed to check user status", err)
+		return nil, err
 	}
 
 	// 2. Validate Password
@@ -85,11 +85,16 @@ func (am *AuthenticationManagerImpl) ValidateUserAuthentication(
 	return user, nil
 }
 
-func (am *AuthenticationManagerImpl) FindUserByUsername(username string) (*database.User, error) {
-	return am.userRepo.FindUserByUsername(username)
+func (am *AuthenticationManagerImpl) FindUserByUsername(username string) (*database.User, apperrors.AppError) {
+
+	user, err := am.userRepo.FindUserByUsername(username)
+	if err != nil {
+		return nil, apperrors.NewNotFoundError("User not found", err, "user", username)
+	}
+	return user, nil
 }
 
-func (am *AuthenticationManagerImpl) CheckUserStatus(user *database.User) error {
+func (am *AuthenticationManagerImpl) CheckUserStatus(user *database.User) apperrors.AppError {
 	switch user.Status {
 	case database.UserStatusLocked:
 		if user.LockedUntil.After(time.Now()) {
@@ -151,10 +156,10 @@ func (am *AuthenticationManagerImpl) CheckLoginAttempts(
 	username string,
 	userID uint,
 	ipAddress string,
-) error {
+) apperrors.AppError {
 	attempts, _, err := am.loginAttemptRepo.GetLoginAttempts(username, ipAddress)
 	if err != nil {
-		return err
+		return apperrors.NewInternalError("Failed to get login attempts", err)
 	}
 
 	if attempts >= MAX_LOGIN_ATTEMPTS {
@@ -178,7 +183,7 @@ func (am *AuthenticationManagerImpl) CheckLoginAttempts(
 func (am *AuthenticationManagerImpl) recordFailedLoginAttempt(
 	username string,
 	ipAddress string,
-) error {
+) apperrors.AppError {
 	attempts, _, _ := am.loginAttemptRepo.GetLoginAttempts(username, ipAddress)
 	possibleLockDuration := am.CalculateLockDelay(attempts + 1)
 
@@ -202,7 +207,7 @@ func (am *AuthenticationManagerImpl) recordFailedLoginAttempt(
 func (am *AuthenticationManagerImpl) resetLoginAttempts(
 	username string,
 	ipAddress string,
-) error {
+) apperrors.AppError {
 	if err := am.loginAttemptRepo.ResetLoginAttempts(username, ipAddress); err != nil {
 		am.logger.Error().Err(err).Msg("Failed to reset login attempts")
 		return apperrors.NewInternalError("Failed to reset login attempts", err)
@@ -210,7 +215,7 @@ func (am *AuthenticationManagerImpl) resetLoginAttempts(
 	return nil
 }
 
-func (am *AuthenticationManagerImpl) ValidateToken(tokenString string, tokenType token.TokenType) (*token.Claims, error) {
+func (am *AuthenticationManagerImpl) ValidateToken(tokenString string, tokenType token.TokenType) (*token.Claims, apperrors.AppError) {
 	claims, err := am.tokenManager.ValidateToken(tokenString, tokenType)
 	if err != nil {
 		return nil, err

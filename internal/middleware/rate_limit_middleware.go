@@ -60,6 +60,10 @@ func (l *IPRateLimiter) getIPLimiter(ip string) *ratelimit.Bucket {
 
 	limiter, exists := l.limiters[ip]
 	if !exists {
+		l.logger.Info().
+			Str("event", "ip_limiter_created").
+			Str("ip_address", ip).
+			Msg("IP rate limiter created")
 		limiter = ratelimit.NewBucket(l.duration, l.globalBurst)
 		l.limiters[ip] = limiter
 	}
@@ -75,6 +79,10 @@ func (l *IPRateLimiter) cleanupOldLimiters() {
 			for ip, limiter := range l.limiters {
 				if limiter.Available() == l.globalBurst {
 					delete(l.limiters, ip)
+					l.logger.Info().
+						Str("event", "ip_limiter_deleted").
+						Str("ip_address", ip).
+						Msg("IP rate limiter deleted")
 				}
 			}
 			l.mu.Unlock()
@@ -101,10 +109,7 @@ func IPRateLimitMiddleware(globalLimit int, globalBurst int64, duration time.Dur
 			ipRateLimiter.trackIPActivity(ip, false)
 
 			// Respond with rate limit error
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"error":   "Too Many Requests",
-				"details": "Rate limit exceeded for your IP",
-			})
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{})
 			return
 		}
 

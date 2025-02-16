@@ -8,10 +8,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/microcosm-cc/bluemonday"
+	"github.com/rs/zerolog"
 )
 
 // SanitizationMiddleware sanitizes incoming request bodies
-func SanitizationMiddleware() gin.HandlerFunc {
+func SanitizationMiddleware(log *zerolog.Logger) gin.HandlerFunc {
 	// Strict HTML sanitization policy
 	policy := bluemonday.StrictPolicy()
 
@@ -19,6 +20,9 @@ func SanitizationMiddleware() gin.HandlerFunc {
 		// Only sanitize for specific content types
 		contentType := c.GetHeader("Content-Type")
 		if !strings.Contains(contentType, "application/json") {
+			log.Error().
+				Str("content_type", contentType).
+				Msg("Skipping body sanitization")
 			c.Next()
 			return
 		}
@@ -26,9 +30,10 @@ func SanitizationMiddleware() gin.HandlerFunc {
 		// Read the body
 		body, err := io.ReadAll(c.Request.Body)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error": "Unable to read request body",
-			})
+			log.Error().
+				Err(err).
+				Msg("Unable to read request body")
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{})
 			return
 		}
 
@@ -42,5 +47,7 @@ func SanitizationMiddleware() gin.HandlerFunc {
 	}
 }
 
+var logger zerolog.Logger
+
 // Ensure the middleware implements the gin.HandlerFunc interface
-var _ gin.HandlerFunc = SanitizationMiddleware()
+var _ gin.HandlerFunc = SanitizationMiddleware(&logger)

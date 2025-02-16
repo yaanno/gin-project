@@ -27,6 +27,7 @@ func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 	defer cancel()
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		a.logger.Err(err).Str("handler", "RegisterUser").Msg("Invalid request body")
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body", Details: err.Error()})
 		return
 	}
@@ -40,14 +41,14 @@ func (a *AuthHandlerImpl) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	user, err := a.service.RegisterUser(ctx, req.Username, sanitizedPassword, req.Email)
+	_, err := a.service.RegisterUser(ctx, req.Username, sanitizedPassword, req.Email)
 	if err != nil {
 		a.logger.Err(err).Str("username", req.Username).Str("email", req.Email).Msg("Failed to register user")
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to register user", Details: err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "user": user})
+	c.JSON(http.StatusCreated, gin.H{})
 }
 
 func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
@@ -55,6 +56,7 @@ func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
 	defer cancel()
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		a.logger.Err(err).Str("handler", "LoginUser").Msg("Invalid request body")
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body", Details: err.Error()})
 		return
 	}
@@ -78,6 +80,7 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&refreshRequest); err != nil {
+		a.logger.Err(err).Str("handler", "RefreshTokens").Msg("Invalid request body")
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body", Details: err.Error()})
 		return
 	}
@@ -126,5 +129,5 @@ func (a *AuthHandlerImpl) LogoutUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "User logged out successfully"})
+	c.JSON(http.StatusOK, gin.H{})
 }
