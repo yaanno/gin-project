@@ -105,7 +105,7 @@ func mapAppErrorToHTTPStatus(err apperrors.AppError) int {
 		return http.StatusNotFound
 	case apperrors.ErrCodeInvalidCredentials:
 		return http.StatusUnauthorized
-	case apperrors.ErrCodeUserLocked, apperrors.ErrCodeUserInactive:
+	case apperrors.ErrCodeUserLocked, apperrors.ErrCodeUserInactive, apperrors.ErrCodeUserDeleted, apperrors.ErrCodeUnauthorized:
 		return http.StatusForbidden
 	case apperrors.ErrCodeDatabaseError:
 		return http.StatusInternalServerError

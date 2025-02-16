@@ -109,7 +109,7 @@ func IPRateLimitMiddleware(globalLimit int, globalBurst int64, duration time.Dur
 			ipRateLimiter.trackIPActivity(ip, false)
 
 			// Respond with rate limit error
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{})
+			c.AbortWithStatus(http.StatusTooManyRequests)
 			return
 		}
 

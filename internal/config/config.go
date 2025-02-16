@@ -39,7 +39,7 @@ type Config struct {
 
 	// Rate Limit Configuration
 	RateLimitLimit    int
-	RateLimitBurst    int64
+	RateLimitBurst    int
 	RateLimitDuration time.Duration
 
 	// Logging Configuration
@@ -155,6 +155,11 @@ func overrideConfigFromEnv(cfg *Config) *Config {
 	}
 	cfg.MaxLoginAttempts = getEnvIntOrDefault("MAX_LOGIN_ATTEMPTS", cfg.MaxLoginAttempts)
 	cfg.LockoutDuration = getEnvDurationOrDefault("LOCKOUT_DURATION", cfg.LockoutDuration)
+
+	// Rate Limit Configuration
+	cfg.RateLimitLimit = getEnvIntOrDefault("RATE_LIMIT_LIMIT", cfg.RateLimitLimit)
+	cfg.RateLimitBurst = getEnvIntOrDefault("RATE_LIMIT_BURST", cfg.RateLimitBurst)
+	cfg.RateLimitDuration = getEnvDurationOrDefault("RATE_LIMIT_DURATION", cfg.RateLimitDuration)
 
 	return cfg
 }

@@ -22,6 +22,7 @@ func AuthMiddleware(authManager *authentication.AuthenticationManagerImpl, logge
 				Str("header", "Authorization").
 				Msg("Authorization header missing")
 			c.Error(apperrors.New(apperrors.ErrCodeUnauthorized, "Authorization header missing", nil))
+			c.Abort()
 			return
 		}
 
@@ -32,6 +33,7 @@ func AuthMiddleware(authManager *authentication.AuthenticationManagerImpl, logge
 		if err != nil {
 			logger.Error().Err(err).Str("token", tokenString).Msg("Token validation failed")
 			c.Error(err)
+			c.Abort()
 			return
 		}
 

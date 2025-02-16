@@ -20,9 +20,9 @@ func SanitizationMiddleware(log *zerolog.Logger) gin.HandlerFunc {
 		// Only sanitize for specific content types
 		contentType := c.GetHeader("Content-Type")
 		if !strings.Contains(contentType, "application/json") {
-			log.Error().
-				Str("content_type", contentType).
-				Msg("Skipping body sanitization")
+			// log.Error().
+			// 	Str("content_type", contentType).
+			// 	Msg("Skipping body sanitization")
 			c.Next()
 			return
 		}
@@ -33,7 +33,7 @@ func SanitizationMiddleware(log *zerolog.Logger) gin.HandlerFunc {
 			log.Error().
 				Err(err).
 				Msg("Unable to read request body")
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{})
+			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
 
