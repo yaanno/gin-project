@@ -10,6 +10,9 @@ const (
 	ErrCodeInvalidRateLimitConfig ErrorCode = "INVALID_RATE_LIMIT_CONFIG"
 	ErrCodeTooManyRequests        ErrorCode = "RATE_LIMIT_EXCEEDED"
 
+	// Validation Errors
+	ErrCodeValidationError ErrorCode = "VALIDATION_ERROR"
+
 	// Initialization Errors
 	ErrCodeInitializationError ErrorCode = "INITIALIZATION_ERROR"
 

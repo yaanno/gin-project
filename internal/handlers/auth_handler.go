@@ -57,7 +57,7 @@ func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		a.logger.Err(err).Str("handler", "LoginUser").Msg("Invalid request body")
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body", Details: err.Error()})
+		c.Error(err)
 		return
 	}
 
@@ -65,7 +65,7 @@ func (a *AuthHandlerImpl) LoginUser(c *gin.Context) {
 	tokenPair, err := a.service.LoginUser(ctx, req.Username, req.Password, ipAddr)
 	if err != nil {
 		a.logger.Err(err).Msg("Failed to login user")
-		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: err.Error()})
+		c.Error(err)
 		return
 	}
 
@@ -81,7 +81,7 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&refreshRequest); err != nil {
 		a.logger.Err(err).Str("handler", "RefreshTokens").Msg("Invalid request body")
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body", Details: err.Error()})
+		c.Error(err)
 		return
 	}
 
@@ -89,17 +89,16 @@ func (a *AuthHandlerImpl) RefreshTokens(c *gin.Context) {
 	userID, username, err := a.service.ValidateRefreshToken(ctx, refreshRequest.RefreshToken)
 	if err != nil {
 		a.logger.Err(err).Str("refresh_token", refreshRequest.RefreshToken).Msg("Invalid refresh token")
-		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Invalid refresh token"})
+		c.Error(err)
 		return
 	}
 
 	tokenPair, err := a.service.RefreshTokens(ctx, userID, username)
 	if err != nil {
 		a.logger.Err(err).Uint("user_id", userID).Str("username", username).Msg("Failed to refresh tokens")
-		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Failed to refresh tokens", Details: err.Error()})
+		c.Error(err)
 		return
 	}
-
 	c.JSON(http.StatusOK, tokenPair)
 }
 
@@ -125,7 +124,7 @@ func (a *AuthHandlerImpl) LogoutUser(c *gin.Context) {
 
 	if err := a.service.LogoutUser(ctx, token); err != nil {
 		a.logger.Err(err).Str("token", token).Msg("Failed to logout user")
-		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Failed to logout user", Details: err.Error()})
+		c.Error(err)
 		return
 	}
 

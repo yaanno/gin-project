@@ -29,7 +29,7 @@ func (h *UserHandlerImpl) GetAllUsers(c *gin.Context) {
 	users, err := h.service.GetAllUsers()
 	if err != nil {
 		h.log.Err(err).Str("handler", "GetAllUsers").Msg("Failed to get all users")
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get all users", Details: err.Error()})
+		c.Error(err)
 		return
 	}
 
@@ -60,7 +60,7 @@ func (h *UserHandlerImpl) GetUserByID(c *gin.Context) {
 	user, err := h.service.GetUserByID(uint(userID))
 	if err != nil {
 		h.log.Err(err).Str("handler", "GetUserByID").Str("id", strconv.Itoa(int(userID))).Msg("Failed to get user by ID")
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get user by ID", Details: err.Error()})
+		c.Error(err)
 		return
 	}
 
@@ -88,7 +88,7 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 		Password string `json:"password" binding:"omitempty"`
 	}
 	if err := c.ShouldBindJSON(&updateReq); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request body", Details: err.Error()})
+		c.Error(err)
 		return
 	}
 
@@ -96,7 +96,7 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 	user, err := h.service.GetUserByID(uint(userID))
 	if err != nil {
 		h.log.Error().Err(err).Str("handler", "GetUserByID").Msg("Failed to get user by ID")
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get user by ID", Details: err.Error()})
+		c.Error(err)
 		return
 	}
 
@@ -110,7 +110,7 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 		sanitizedPassword := p.SanitizePassword(updateReq.Password)
 		if !p.IsPasswordComplex(sanitizedPassword) {
 			h.log.Error().Str("handler", "UpdateUser").Str("id", user.Username).Msg("Password does not meet complexity requirements")
-			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Password does not meet complexity requirements"})
+			c.Error(err)
 			return
 		}
 
@@ -118,7 +118,7 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 		user.Password = sanitizedPassword
 		if err := user.HashPassword(); err != nil {
 			h.log.Error().Err(err).Str("handler", "HashPassword").Msg("Failed to hash password")
-			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to hash password", Details: err.Error()})
+			c.Error(err)
 			return
 		}
 	}
@@ -126,7 +126,7 @@ func (h *UserHandlerImpl) UpdateUser(c *gin.Context) {
 	// Save updated user
 	if err := h.service.UpdateUser(user); err != nil {
 		h.log.Error().Err(err).Str("handler", "UpdateUser").Uint64("id", userID).Msg("Failed to update user")
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to update user", Details: err.Error()})
+		c.Error(err)
 		return
 	}
 
@@ -145,7 +145,7 @@ func (h *UserHandlerImpl) DeleteUser(c *gin.Context) {
 	// Delete user
 	if err := h.service.DeleteUser(uint(userID)); err != nil {
 		h.log.Error().Err(err).Str("handler", "DeleteUser").Uint64("id", userID).Msg("Failed to delete user")
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to delete user", Details: err.Error()})
+		c.Error(err)
 		return
 	}
 
@@ -157,7 +157,7 @@ func (h *UserHandlerImpl) parseUserID(c *gin.Context) (uint64, bool) {
 	userID, err := strconv.ParseUint(userIDStr, 10, 64)
 	if err != nil {
 		h.log.Error().Err(err).Str("handler", "ParseUserID").Str("id", userIDStr).Msg("Invalid user ID")
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid user ID", Details: err.Error()})
+		c.Error(err)
 		return 0, false
 	}
 	return userID, true

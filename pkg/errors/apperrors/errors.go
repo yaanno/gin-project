@@ -6,7 +6,7 @@ type AppError interface {
 	Error() string
 	Code() ErrorCode
 	Unwrap() error
-	Is(target error, code ErrorCode) bool
+	// Is(target error, code ErrorCode) bool
 }
 
 type baseError struct {
@@ -19,15 +19,32 @@ func (e baseError) Error() string   { return e.message }
 func (e baseError) Code() ErrorCode { return e.code }
 func (e baseError) Unwrap() error   { return e.cause }
 
-func (e baseError) Is(target error, code ErrorCode) bool {
+// func (e baseError) Is(target error, code ErrorCode) bool {
+// 	if target == nil {
+// 		return false
+// 	}
+
+// 	appErr, ok := target.(AppError)
+// 	if !ok {
+// 		return false
+// 	}
+
+// 	return appErr.Code() == code
+// }
+
+func Is(target error, code ErrorCode) bool {
 	if target == nil {
 		return false
 	}
 
-	appErr, ok := target.(AppError)
-	if !ok {
-		return false
-	}
+	_, ok := target.(AppError)
+	return ok
+}
 
-	return appErr.Code() == code
+func New(code ErrorCode, message string, cause error) AppError {
+	return baseError{
+		message: message,
+		code:    code,
+		cause:   cause,
+	}
 }
