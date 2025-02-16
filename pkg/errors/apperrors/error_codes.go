@@ -38,6 +38,7 @@ const (
 	ErrCodeUserLocked         ErrorCode = "USER_LOCKED"
 	ErrCodeUserInactive       ErrorCode = "USER_INACTIVE"
 	ErrCodeUserDeleted        ErrorCode = "USER_DELETED"
+	ErrCodeUnauthorized       ErrorCode = "UNAUTHORIZED"
 
 	// General Errors
 	ErrCodeUnknownError  ErrorCode = "UNKNOWN_ERROR"

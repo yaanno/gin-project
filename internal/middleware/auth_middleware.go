@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -22,8 +21,7 @@ func AuthMiddleware(authManager *authentication.AuthenticationManagerImpl, logge
 				Error().
 				Str("header", "Authorization").
 				Msg("Authorization header missing")
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
-			c.Abort()
+			c.Error(apperrors.New(apperrors.ErrCodeUnauthorized, "Authorization header missing", nil))
 			return
 		}
 
@@ -33,34 +31,7 @@ func AuthMiddleware(authManager *authentication.AuthenticationManagerImpl, logge
 		claims, err := authManager.ValidateToken(tokenString, token.AccessToken)
 		if err != nil {
 			logger.Error().Err(err).Str("token", tokenString).Msg("Token validation failed")
-
-			switch err.Code() {
-			case apperrors.ErrCodeTokenExpired:
-				logger.Error().
-					Str("token", tokenString).
-					Msg("Token expired")
-				c.JSON(http.StatusUnauthorized, gin.H{})
-			case apperrors.ErrCodeTokenBlacklisted:
-				logger.Error().
-					Str("token", tokenString).
-					Msg("Token blacklisted")
-				c.JSON(http.StatusUnauthorized, gin.H{})
-			case apperrors.ErrCodeTokenInvalidType,
-				apperrors.ErrCodeInvalidTokenSignature,
-				apperrors.ErrCodeTokenMalformed,
-				apperrors.ErrCodeTokenInvalidClaim:
-				logger.Error().
-					Str("token", tokenString).
-					Msg("Invalid token")
-				c.JSON(http.StatusBadRequest, gin.H{})
-			default:
-				logger.Error().
-					Str("token", tokenString).
-					Msg("Invalid token")
-				c.JSON(http.StatusUnauthorized, gin.H{})
-				// TODO: this should be internal error
-			}
-			c.Abort()
+			c.Error(err)
 			return
 		}
 
@@ -70,7 +41,7 @@ func AuthMiddleware(authManager *authentication.AuthenticationManagerImpl, logge
 			logger.Error().
 				Str("username", claims.Username).
 				Msg("User not found")
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{})
+			c.Error(err)
 			return
 		}
 
@@ -80,7 +51,7 @@ func AuthMiddleware(authManager *authentication.AuthenticationManagerImpl, logge
 				Err(err).
 				Str("username", claims.Username).
 				Msg("User status check failed")
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{})
+			c.Error(err)
 			return
 		}
 
